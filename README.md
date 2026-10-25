@@ -1,0 +1,149 @@
+<div align="center">
+
+<h1><img src="https://github.com/user-attachments/assets/6fe2b479-0f71-46ec-b5bc-9142184db72b" height="48" align="center" alt=""> anime-voice-collector</h1>
+
+**English** · [简体中文](README.zh.md)
+
+**Turn anime episodes into a clean voice dataset of one character, ready for GPT-SoVITS or RVC.<br>Label 10 of their lines, and it starts sorting the rest for you.**
+
+[![CI](https://github.com/raindrops0/anime-voice-collector/actions/workflows/ci.yml/badge.svg)](https://github.com/raindrops0/anime-voice-collector/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-6-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/vite-8-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
+[![shadcn/ui on Base UI](https://img.shields.io/badge/shadcn%2Fui-Base_UI-000000.svg?logo=shadcnui&logoColor=white)](https://ui.shadcn.com/)
+[![Platform: Windows · Linux/macOS untested](https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux%2FmacOS%20untested-0078D6.svg)](#platforms)
+
+[Install](#install) · [Your first episode](#your-first-episode) · [Labeling](#labeling) · [What you get](#what-you-get) · [Questions](#questions) · [Docs](docs/index.md)
+
+<img src="https://github.com/user-attachments/assets/c19aeaa2-5064-4783-9bc1-7193e865da50" width="800" alt="Lines from an episode on a timeline, each sorted into a folder by who said it: Mio, Rin or Other">
+
+<img src="https://github.com/user-attachments/assets/1e34c75d-3abd-4b24-8196-2888de33e0d6" width="800" alt="Demo: name a group of lines as a character, the machine starts guessing the rest, fix a wrong guess, check the character's list, and export">
+
+</div>
+
+## Why
+
+To train a voice model of one character, you need minutes of that character speaking alone, each clip with its line. By hand, that means scrubbing through every episode. Most tools stop at speaker diarization (grouping lines by which voice they sound like) and leave naming and checking the groups to you.
+
+Here you label a few lines while watching the scene. A small model learns your character, sorts the rest, and **retrains in a few seconds every time you correct it**, so its other guesses improve right away. You check its work instead of doing all of it.
+
+| | By hand | Grouping by voice (speaker diarization, such as pyannote) | anime-voice-collector |
+| --- | --- | --- | --- |
+| Which character is it? | You decide every line | You get "speaker 3" and match it to a character yourself, every episode | You label a few lines; it names the rest |
+| When it is wrong | You find it on a second pass | You fix it by hand, and it learns nothing | Your fix retrains it, and its other guesses improve |
+| Music and sound effects | You remove them separately | You remove them separately | Removed |
+| The words of each line | You type or match them | Not included | Taken from the subtitles, in the language spoken |
+| Ready to train GPT-SoVITS or RVC | After more work | After more work | Yes, one export |
+
+## Features
+
+- 🎬 **One clip per subtitle line,** so no line is lost to a speech detector.
+- 🎤 **Voice only:** music and sound effects are removed from every clip.
+- 🧠 **Learns from your corrections.** Name the characters you want; everyone else is "Not a target".
+- 📺 **Label while watching.** The video plays with each line, with more context one key away.
+- ⌨️ **Keyboard first,** and every step can be undone, even an earlier one alone, from the history.
+- 🈶 **The words actually said.** The exported text is in the language spoken, even if you read a translation while labeling.
+- 📦 **Export** one folder per character for RVC, or GPT-SoVITS with each line's text, at the quality of the video.
+- 🔒 **Runs on your machine.** Nothing is uploaded.
+
+## Install
+
+You need Windows and [uv](https://docs.astral.sh/uv/) (it installs the right Python for you). An NVIDIA graphics card is strongly recommended; without one, removing the music from one episode takes much longer.
+
+If you don't have uv yet, open PowerShell and run:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then open a new terminal, so it finds uv, and run:
+
+```bash
+git clone https://github.com/raindrops0/anime-voice-collector.git
+cd anime-voice-collector
+uv sync --locked
+```
+
+You also need [FFmpeg](https://ffmpeg.org/). If you don't have it, the app's first page installs it for you in one click. To install it yourself instead, see [Set up](docs/USAGE.md#set-up).
+
+## Your first episode
+
+For each episode you need:
+
+- **the video** (`.mkv`, `.mp4`, …);
+- **main subtitles** whose lines match the dialogue (`.ass` or `.srt`); each line becomes one clip. They are best in the language spoken, such as Japanese subtitles for a Japanese anime;
+- if you like, **secondary subtitles** you can read, such as a translation. They are shown in small type under each line while labeling and change nothing else.
+
+Start the app on a folder of your choice, here `workspace`:
+
+```bash
+uv run avoc app workspace
+```
+
+It opens in your browser and shows the form to add an episode. Pick the files and press Start: it removes the music, cuts the lines and gets everything ready, with its progress shown as it goes. Then add the next episodes the same way, from the episode menu.
+
+**The subtitle offset** is how many seconds the subtitle times are off from the sound. Leave it empty and it is measured for you. Measuring uses a free [Hugging Face](https://huggingface.co) model that asks you to accept its terms and make a token once; the form shows the steps when they are needed. Later episodes from the same video source and subtitle group get the same value filled in.
+
+## Labeling
+
+You only name the characters you want (the target characters). Everyone else is "Not a target". You can add or remove target characters at any time, and the labels you made stay.
+
+| View | Key | What you do there |
+| --- | :---: | --- |
+| **Groups** | `G` | Start here. The machine puts lines that sound like the same person into a group, so you can label them all at once. It may mix people up, so you tick the lines of one person before picking who it is. |
+| **Scenes** | `S` | Every line in order, with the video playing. `Enter` accepts the machine's guess, a number picks a character, `Q` means "Not a target", `Shift` + number marks the line low quality (loud background, two people at once), `X` sets aside a line nobody can tell. |
+| **Characters** | `O` | Everything the machine gave one character, least sure first. Fix the wrong ones, then confirm the rest with `Shift+Enter`. Below are lines it may have missed. |
+| **Export** | `E` | Write the dataset. |
+
+Once 10 lines of a character are confirmed and a few others are labeled "Not a target", the machine starts guessing. Each label retrains it in a moment, and other lines show their new guess in place; the list itself changes only when you press "Update list" (or tick "Auto"), so nothing moves under your hand. `Z` undoes the last step, the clock next to Undo takes back any earlier one, `?` lists every key, and the Guide button explains the four views. The full guide is in [docs/USAGE.md](docs/USAGE.md).
+
+## What you get
+
+```text
+exports/2026-10-24/
+├── Teio/
+│   ├── ep01_00083.120000_00085.430000.wav
+│   └── ...
+├── train.list      (GPT-SoVITS only: path|character|language|text)
+└── rejected.tsv    (lines left out, and why)
+```
+
+Each clip is one line of one character: voice only, mono, at the sample rate of the video, with even loudness. Lines marked low quality are never exported. For GPT-SoVITS, a line is left out when its words in the spoken language cannot be found completely.
+
+## Questions
+
+**Can I use translated subtitles?** Yes. Lines are best cut from subtitles in the spoken language, but translated or bilingual ones work. But an episode cut from a translation can only be exported as sound (RVC and such), not with text for GPT-SoVITS. With a translation you read, give it as the secondary subtitles.
+
+**It stopped halfway, for example out of graphics memory.** Add the same episode again. It continues where it stopped.
+
+**Something doesn't work, or shows an error.** Run `uv run avoc doctor`: it checks the graphics card, FFmpeg, the models and free disk space, and says how to fix anything missing. When you report a problem, include its output.
+
+**Can I do it from the command line?** Yes: `uv run avoc add workspace "Episode 01.mkv" --subs "Episode 01.ja.srt"`. Run `uv run avoc --help` for all commands and options; the add form also shows the command for your workspace.
+
+## Platforms
+
+| Platform | Status |
+| --- | --- |
+| Windows 11 + NVIDIA graphics card | ✅ Tested (RTX 4060 Laptop) |
+| Windows without a graphics card | Runs on the CPU, slower |
+| Linux | ⚠️ Not tested yet. The install already picks the CUDA build of torch. |
+| macOS | ⚠️ Not tested yet. CPU only. |
+
+Reports from Linux and macOS are welcome in the issues.
+
+## Docs
+
+How it works, the words it uses, and what was tried and ruled out are in [docs/index.md](docs/index.md). To help, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+## Usage rules
+
+The code is released under the [MIT License](LICENSE). The audio and text you extract with it belong to the rights holders of the original work, and the MIT License does not cover them. Please use this tool only within these rules:
+
+- ✅ Use extracted material for personal research or study.
+- ❌ Do not use extracted audio or text, or models trained on them, for any commercial purpose.
+- ❌ Do not use extracted voices to pass yourself off as a character or voice actor.
+
+## Acknowledgements
+
+Built on [audio-separator](https://github.com/nomadkaraoke/python-audio-separator), [anime-speaker-embedding](https://github.com/litagin02/anime_speaker_embedding), [ReDimNet](https://github.com/PalabraAI/redimnet2), [pyannote.audio](https://github.com/pyannote/pyannote-audio) and [pysubs2](https://github.com/tkarabela/pysubs2).

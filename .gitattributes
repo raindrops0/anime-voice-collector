@@ -1,0 +1,19 @@
+# Line endings are LF in the repo. On checkout, core.autocrlf decides the form in the working tree.
+* text=auto eol=lf
+
+# Binary files
+*.wav binary
+*.flac binary
+*.mp3 binary
+*.mkv binary
+*.mp4 binary
+*.ckpt binary
+*.pth binary
+*.onnx binary
+
+# Lock files: do not expand them in diffs
+uv.lock -diff linguist-generated
+web/package-lock.json -diff linguist-generated
+
+# Built web app files, made from web/ by `npm run build`
+src/avoc/app/static/** -diff linguist-generated

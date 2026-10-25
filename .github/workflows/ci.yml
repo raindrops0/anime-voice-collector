@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          # By default, the action deletes the wheels downloaded from the internet before saving the cache. That would make the CUDA build of torch download several GB again every time.
+          prune-cache: false
+
+      - name: Sync
+        run: uv sync --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # ty is not in the project dependencies, so run a pinned version on the fly. It finds the .venv made in the previous step by itself.
+      - name: Type check
+        run: uvx ty@0.0.91 check src
+
+      - name: Test
+        run: uv run pytest
+
+  # The web app's source is in web/. Its built files are committed in src/avoc/app/static/, so users need no
+  # Node; this job checks them against the source.
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint, format, types and tests
+        run: npm run check
+
+      - name: Built files match the source
+        run: |
+          npm run build
+          git diff --exit-code -- ../src/avoc/app/static
+          test -z "$(git status --porcelain -- ../src/avoc/app/static)"

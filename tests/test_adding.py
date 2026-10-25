@@ -1,0 +1,283 @@
+"""Adding an episode from the interface: checks before starting, progress, and stopping.
+
+A small script stands in for `avoc add`, so no audio is processed."""
+
+from __future__ import annotations
+
+import json
+import sys
+import threading
+import time
+from pathlib import Path
+
+import pytest
+
+from avoc.app.adding import Adding, clean_path
+
+FAKE_ADD = """
+import json, sys, time
+from pathlib import Path
+args = sys.argv[1:]
+workspace, video, name = Path(args[1]), args[2], args[args.index("--name") + 1]
+folder = workspace / "episodes" / name
+folder.mkdir(parents=True, exist_ok=True)
+print("Failed to load a library", flush=True)
+print("\\x1fcutting", flush=True)
+print(" 50%|#####     | 1/2 [00:01<00:01]", end="\\r", file=sys.stderr, flush=True)
+if "slow" in video:
+    time.sleep(60)
+if "bad" in video and not Path(video).with_suffix(".fixed").exists():
+    print("\x1b[33mError: no luck\x1b[0m", file=sys.stderr, flush=True)
+    sys.exit(1)
+meta = {"name": name, "video": str(Path(video).resolve()), "args": args}
+(folder / "episode.json").write_text(json.dumps(meta))
+print("\\x1fdone", flush=True)
+"""
+
+
+@pytest.fixture
+def files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr("avoc.app.adding.shutil.which", lambda _: "found")
+    (tmp_path / "fake_add.py").write_text(FAKE_ADD, encoding="utf-8")
+    for name in ("good.mkv", "good2.mkv", "slow.mkv", "bad.mkv", "notes.ass"):
+        (tmp_path / name).write_text("x", encoding="utf-8")
+    (tmp_path / "ep.ass").write_text("1\n00:00:01,000 --> 00:00:02,000\nhi\n", encoding="utf-8")
+    return tmp_path
+
+
+def adding(files: Path, loaded: list[str]) -> Adding:
+    job = Adding(files / "work", loaded.append)
+    job.program = [sys.executable, str(files / "fake_add.py")]
+    return job
+
+
+def finished(job: Adding) -> dict:
+    job.ended.wait(timeout=30)
+    return job.status()
+
+
+def test_a_finished_episode_is_loaded_and_named_in_order(files: Path) -> None:
+    loaded: list[str] = []
+    job = adding(files, loaded)
+    started = job.start(files / "good.mkv", files / "ep.ass", offset=-0.95)
+    assert (started["state"], started["episode"]) == ("running", "ep01")
+    status = finished(job)
+    assert status["state"] == "done"
+    assert status["lines"] == ["cutting", "done"]
+    assert status["bar"].startswith("50%|")
+    # A library line on the same output is kept apart from the progress.
+    assert status["errors"] == ["Failed to load a library"]
+    assert loaded == ["ep01"]
+    # Same video again: the same episode, so a rerun carries on instead of making ep02.
+    assert job.start(files / "good.mkv", files / "ep.ass", offset=0)["episode"] == "ep01"
+    finished(job)
+
+
+def test_a_failed_run_keeps_its_output(files: Path) -> None:
+    loaded: list[str] = []
+    job = adding(files, loaded)
+    job.start(files / "bad.mkv", files / "ep.ass", offset=0)
+    status = finished(job)
+    assert status["state"] == "failed"
+    assert status["lines"] == ["cutting"]
+    # Two outputs read side by side, so their order is not fixed.
+    assert sorted(status["errors"]) == ["Error: no luck", "Failed to load a library"]
+    assert loaded == []
+
+
+def test_stopping_before_clips_are_cut_removes_the_folder(files: Path) -> None:
+    job = adding(files, [])
+    job.start(files / "slow.mkv", files / "ep.ass", offset=0)
+    folder = files / "work" / "episodes" / "ep01"
+    for _ in range(100):
+        if job.status()["lines"]:
+            break
+        time.sleep(0.1)
+    with pytest.raises(ValueError, match="still being added"):
+        job.start(files / "good.mkv", files / "ep.ass", offset=0)
+    assert job.stop()["state"] == "stopped"
+    assert not folder.exists()
+
+
+def test_an_episode_never_cut_is_still_listed_after_a_restart(files: Path) -> None:
+    # The fake leaves its folder behind when it fails, like a run cut off before it cleaned up.
+    first = adding(files, [])
+    first.start(files / "bad.mkv", files / "ep.ass", offset=0, display_subtitles=files / "ep.ass")
+    assert finished(first)["state"] == "failed"
+    folder = files / "work" / "episodes" / "ep01"
+    (folder / "left.wav").write_text("x", encoding="utf-8")
+
+    job = adding(files, loaded := [])  # A new server: nothing in memory.
+    assert job.status()["state"] == "idle"
+    assert job.not_cut() == ["ep01"]
+    (files / "bad.fixed").write_text("x", encoding="utf-8")
+    assert job.carry_on("ep01")["episode"] == "ep01"
+    assert finished(job)["state"] == "done"
+    assert not (folder / "left.wav").exists()
+    meta = json.loads((folder / "episode.json").read_text())
+    # The files it was first started with, not only those episode.json knows.
+    assert meta["args"][meta["args"].index("--display-subs") + 1] == str(files / "ep.ass")
+    assert loaded == ["ep01"]
+    assert job.not_cut() == []
+    assert not (files / "work" / "adding.json").exists()
+
+
+def test_an_episode_never_cut_can_be_given_up(files: Path) -> None:
+    job = adding(files, [])
+    job.start(files / "bad.mkv", files / "ep.ass", offset=0)
+    assert finished(job)["state"] == "failed"
+    assert job.status()["cut"] is False
+    folder = files / "work" / "episodes" / "ep01"
+    assert job.not_cut() == ["ep01"] and folder.is_dir()
+    job.forget("ep01")
+    assert job.not_cut() == [] and not folder.exists()
+
+    job.start(files / "good.mkv", files / "ep.ass", offset=0)
+    assert finished(job)["cut"] is True
+    with pytest.raises(ValueError, match="already has its clips"):
+        job.forget("ep01")
+
+
+def test_add_stops_by_itself_when_the_server_goes(tmp_path: Path) -> None:
+    """On Windows the command waits on the server process; elsewhere on its input, which the
+    server holds open. Either way it cleans up when the server ends. It also loads numpy after it
+    starts waiting, as `avoc add` does: on Windows, a thread blocked reading the input made that
+    load hang forever."""
+    import subprocess
+
+    server = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+    script = tmp_path / "child.py"
+    script.write_text(
+        "import sys, time\n"
+        "from avoc.app.adding import stop_with_interface\n"
+        f"stop_with_interface({server.pid})\n"
+        "import numpy\n"
+        "print('ready', flush=True)\n"
+        "try:\n"
+        "    for _ in range(600):\n"
+        "        time.sleep(0.1)\n"
+        "except KeyboardInterrupt:\n"
+        "    print('cleaned up', flush=True)\n",
+        encoding="utf-8",
+    )
+    child = subprocess.Popen(
+        [sys.executable, str(script)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    # A hang must fail the test, not stop it forever.
+    guard = threading.Timer(60, child.kill)
+    guard.start()
+    try:
+        assert child.stdout is not None and child.stdin is not None
+        assert child.stdout.readline().strip() == "ready"
+        server.kill()
+        if sys.platform != "win32":
+            child.stdin.close()
+        assert child.wait(timeout=20) == 0
+        assert child.stdout.read().strip() == "cleaned up"
+    finally:
+        guard.cancel()
+        server.kill()
+        child.kill()
+
+
+def test_bad_input_is_refused_before_starting(files: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    job = adding(files, [])
+    with pytest.raises(ValueError, match="cannot find the video"):
+        job.start(files / "missing.mkv", files / "ep.ass", offset=0)
+    with pytest.raises(ValueError, match="cannot find the secondary subtitles"):
+        job.start(files / "good.mkv", files / "ep.ass", offset=0, display_subtitles=files / "x.srt")
+    with pytest.raises(ValueError, match="cannot read this subtitle file"):
+        job.start(files / "good.mkv", files / "notes.ass", offset=0)
+    monkeypatch.setattr("avoc.pipeline.has_hf_token", lambda: False)
+    with pytest.raises(ValueError, match="no Hugging Face token"):
+        job.start(files / "good.mkv", files / "ep.ass")
+    assert job.status()["state"] == "idle"
+
+
+def test_chosen_styles_are_passed_on_and_checked(files: Path) -> None:
+    job = adding(files, [])
+    with pytest.raises(ValueError, match="no style Dial"):
+        job.start(files / "good.mkv", files / "ep.ass", offset=0, styles=["Dial"])
+    job.start(files / "good.mkv", files / "ep.ass", offset=0, styles=["Default"])
+    assert finished(job)["state"] == "done"
+    meta = json.loads((files / "work" / "episodes" / "ep01" / "episode.json").read_text())
+    assert meta["args"][-2:] == ["--styles", "Default"]
+
+
+def queued(job: Adding) -> dict:
+    job.all_ended.wait(timeout=60)
+    return job.status()
+
+
+def episode(files: Path, name: str, video: str) -> dict:
+    return {"name": name, "video": files / video, "subtitles": files / "ep.ass"}
+
+
+def test_queued_episodes_are_added_one_after_another(files: Path) -> None:
+    loaded: list[str] = []
+    job = adding(files, loaded)
+    started = job.enqueue(
+        [episode(files, "s1-ep01", "good.mkv"), episode(files, "s1-ep02", "bad.mkv"),
+         episode(files, "s1-ep03", "good2.mkv")],
+        offset=0,
+    )  # fmt: skip
+    assert started["episode"] == "s1-ep01"
+    assert [q["state"] for q in started["queue"]] == ["running", "waiting", "waiting"]
+    # A failed episode does not hold up the rest, and stays listed to be carried on.
+    status = queued(job)
+    assert [q["state"] for q in status["queue"]] == ["done", "failed", "done"]
+    assert loaded == ["s1-ep01", "s1-ep03"]
+    assert job.not_cut() == ["s1-ep02"]
+    (files / "bad.fixed").write_text("x", encoding="utf-8")
+    job.carry_on_all(["s1-ep02"])
+    assert [q["state"] for q in queued(job)["queue"]] == ["done"]
+    assert job.not_cut() == []
+
+
+def test_every_problem_is_given_before_any_episode_starts(
+    files: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = adding(files, [])
+    with pytest.raises(ValueError) as refused:
+        job.enqueue(
+            [episode(files, "a", "missing.mkv"), episode(files, "b", "good.mkv"),
+             episode(files, "c", "gone.mkv")],
+            offset=0,
+        )  # fmt: skip
+    reasons = str(refused.value).splitlines()
+    assert [r.split(":")[0] for r in reasons] == ["a", "c"]
+    assert all("cannot find the video" in r for r in reasons)
+    with pytest.raises(ValueError, match="repeated names: a"):
+        job.enqueue([episode(files, "a", "good.mkv"), episode(files, "a", "good2.mkv")], offset=0)
+    # A reason every episode shares is said once, without the names.
+    monkeypatch.setattr("avoc.pipeline.has_hf_token", lambda: False)
+    with pytest.raises(ValueError) as refused:
+        job.enqueue([episode(files, "a", "good.mkv"), episode(files, "b", "good2.mkv")])
+    assert str(refused.value).count("no Hugging Face token") == 1
+    assert job.status()["state"] == "idle"
+    assert not (files / "work" / "adding.json").exists()
+
+
+def test_stopping_a_queue_keeps_the_rest_listed_after_a_restart(files: Path) -> None:
+    job = adding(files, [])
+    job.enqueue([episode(files, "a", "slow.mkv"), episode(files, "b", "good.mkv")], offset=0)
+    for _ in range(100):
+        if job.status()["lines"]:
+            break
+        time.sleep(0.1)
+    # Waiting episodes are not unfinished: they are on their way.
+    assert job.not_cut() == []
+    with pytest.raises(ValueError, match="b: already queued"):
+        job.enqueue([episode(files, "b", "good.mkv")], offset=0)
+    stopped = job.stop()
+    assert [q["state"] for q in stopped["queue"]] == ["stopped", "stopped"]
+    assert queued(job)["episode"] == "a"
+    restarted = adding(files, [])
+    assert sorted(restarted.not_cut()) == ["a", "b"]
+
+
+def test_pasted_paths_lose_their_quotes() -> None:
+    assert clean_path(' "D:/a b/ep 01.mkv" ') == Path("D:/a b/ep 01.mkv")

@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Environment
+.venv/
+
+# Web app: dependencies installed by npm
+web/node_modules/
+npm-debug.log*
+# Browser test output: traces and reports of failed runs
+web/test-results/
+web/playwright-report/
+
+# Data and outputs: never committed to git
+data/
+workspace/
+out/
+output/
+models/
+*.wav
+*.flac
+*.mp3
+*.mkv
+*.mp4
+*.ckpt
+*.pth
+*.onnx
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Exception: the tiny test samples used by CI must be allowed into git
+!tests/fixtures/**/*.wav
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+desktop.ini
+
+# Claude Code: the maintainer's own instructions and dev server settings
+CLAUDE.local.md
+.claude/launch.json
+
+# Personal notes: plans, labeling progress, local paths. Never committed
+private/
