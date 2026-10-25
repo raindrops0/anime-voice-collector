@@ -1,5 +1,7 @@
 # Line endings are LF in the repo. On checkout, core.autocrlf decides the form in the working tree.
 * text=auto eol=lf
+# cmd.exe misreads batch files with LF line endings
+*.bat text eol=crlf
 
 # Binary files
 *.wav binary

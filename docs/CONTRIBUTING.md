@@ -72,6 +72,10 @@ The demo GIF at the top of the README is recorded by a script, so it can be made
 
 The README comes in English (`README.md`) and Simplified Chinese (`README.zh.md`). When you change one, change the other in the same commit. The other docs are in English only.
 
+## Releases
+
+A release is the Windows download described in [Set up](USAGE.md#set-up). To make one, set `version` in `pyproject.toml`, commit, and push a tag with the same version, such as `v0.2.0`. The [release workflow](../.github/workflows/release.yml) builds the zip with [make_zip.ps1](../scripts/release/make_zip.ps1), installs it once to check it, and puts it on a draft release; read the draft's notes, then publish it. A push to `dev` or a pull request that changes `scripts/release/`, the workflow, `pyproject.toml` or `uv.lock` runs the same build and check, and keeps the zip for 7 days under the run's artifacts. To try the zip first, run `pwsh scripts/release/make_zip.ps1`, which packages the last commit (`-Ref (git write-tree)` packages what is staged), unzip it to an empty folder and double-click `start.bat`. The uv inside the zip is the version set in the workflow, and the uv on `PATH` when run by hand.
+
 ## Text in the web app
 
 Both languages are written side by side as `tr(Chinese, English)` where the text is used. Use the terms in the [glossary](HOW_IT_WORKS.md#glossary), and follow the design rules in [docs/UI_DESIGN.md](UI_DESIGN.md).

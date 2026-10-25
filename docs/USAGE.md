@@ -26,6 +26,15 @@ Contents:
 
 ## Set up
 
+**The Windows download** is a zip on the [Releases page](https://github.com/raindrops0/anime-voice-collector/releases/latest), about 16 MB. It holds this repo, `uv.exe`, and two files to double-click:
+
+- `start.bat` starts the app on the folder `workspace` inside the download. The first start downloads Python and the libraries, about 5 GB; later starts take a few seconds. To open another workspace, drag its folder onto `start.bat`, or run `start.bat D:\my-workspace`; options after the folder go to `avoc app`, such as `--port 8800`. Keep its window open while you use the app.
+- `terminal.bat` opens a command prompt where every command on this page works as written, such as `uv run avoc doctor` or `uv run hf auth login`.
+
+Python, the libraries and the downloaded models stay inside the unzipped folder ([how](../scripts/release/env.bat)), so deleting the folder removes everything; only the Hugging Face token stays in your user folder. Unzip it to a short path such as `D:\avoc`: Windows refuses file paths longer than 260 characters, and the libraries already use about 170 of them. To update, unzip the new version over the old folder: your workspace, the libraries and the models stay, and the next start installs only what changed.
+
+With `git clone` instead, run the two commands below in the repo folder.
+
 You need FFmpeg on your `PATH`. On Windows, the app's first page has an "Install it for me in one click" button: it runs [install_ffmpeg.ps1](../src/avoc/install_ffmpeg.ps1), which installs [Scoop](https://scoop.sh) if you have none and then FFmpeg with it, all without administrator rights, and avoc can use it at once without a restart. To install it yourself, run `scoop install ffmpeg` if you have Scoop, or download the Windows build from [ffmpeg.org](https://ffmpeg.org/download.html), unzip it, and add its `bin` folder to the `PATH` environment variable. `avoc doctor` says the same when FFmpeg is missing. For the GPU setup and notes on each model, see [TOOLS.md](TOOLS.md).
 
 ```powershell

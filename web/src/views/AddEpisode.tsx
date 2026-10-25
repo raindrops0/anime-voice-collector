@@ -267,8 +267,8 @@ function TokenSteps() {
         </li>
         <li>
           {tr(
-            "在启动 avoc 的文件夹里打开终端，运行下面这条命令，按提示粘贴令牌：",
-            "Open a terminal in the folder you started avoc in, run this command, and paste the token when asked:",
+            "在启动 avoc 的文件夹里打开终端（用 Windows 下载包的话，双击里面的 terminal.bat），运行下面这条命令，按提示粘贴令牌：",
+            "Open a terminal in the folder you started avoc in (with the Windows download, double-click terminal.bat in it), run this command, and paste the token when asked:",
           )}
           {shell("uv run hf auth login")}
         </li>

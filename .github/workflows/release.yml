@@ -1,0 +1,73 @@
+name: Release
+
+# Builds the Windows download and checks that it installs. On a tag such as v0.1.0 it also puts the
+# zip on a draft release, which is published by hand after reading its notes. On a push to dev or a
+# pull request that changes the download or the dependencies, the zip is kept as a workflow
+# artifact to try. (Paths are not checked for tags.)
+on:
+  push:
+    tags: ["v*"]
+    branches: [dev]
+    paths:
+      - scripts/release/**
+      - .github/workflows/release.yml
+      - pyproject.toml
+      - uv.lock
+  pull_request:
+    paths:
+      - scripts/release/**
+      - .github/workflows/release.yml
+      - pyproject.toml
+      - uv.lock
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-zip:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # This uv.exe goes into the zip, so its version is fixed here.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.24"
+
+      # On a tag, the tag must match the version in pyproject.toml; otherwise that version is used.
+      - name: Build the zip
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            scripts/release/make_zip.ps1 -Version $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            scripts/release/make_zip.ps1
+          }
+
+      # The same steps as start.bat, without opening the app: install from uv.lock with the uv
+      # inside the zip, then load avoc and torch. This downloads the libraries, about 5 GB.
+      - name: Try the zip
+        run: |
+          $zip = Get-Item dist/*.zip
+          Expand-Archive $zip.FullName -DestinationPath $env:RUNNER_TEMP/try
+          $folder = Join-Path $env:RUNNER_TEMP try/anime-voice-collector
+          cmd /c "call `"$folder\scripts\release\env.bat`" && cd /d `"$folder`" && uv sync && uv run avoc --help && uv run python -c `"import torch, avoc.app.server; print('torch', torch.__version__)`""
+          if ($LASTEXITCODE -ne 0) { throw 'The zip did not install.' }
+
+      - name: Keep the zip
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: dist/*.zip
+          retention-days: 7
+
+      - name: Make a draft release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME (Get-Item dist/*.zip).FullName --draft --generate-notes --title $env:GITHUB_REF_NAME

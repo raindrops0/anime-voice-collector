@@ -45,13 +45,14 @@
 - ⌨️ **以键盘操作为主**，每一步都能撤销，较早的某一步也能在操作历史里单独撤销。
 - 🈶 **导出角色说出口的原话。** 文字用原声语言，哪怕你标注时看的是译文。
 - 📦 **导出**为每个角色一个文件夹（给 RVC），或带每句文字的 GPT-SoVITS 格式，音质和视频一样。
-- 🔒 **全部在本机运行。** 不上传任何东西。
 
 ## 安装
 
-需要 Windows 和 [uv](https://docs.astral.sh/uv/)（它会自动装好合适的 Python）。强烈建议用 NVIDIA 显卡；没有的话，去掉一集的音乐要慢得多。
+需要 Windows。强烈建议用 NVIDIA 显卡；没有的话，去掉一集的音乐要慢得多。
 
-还没装 uv 的话，打开 PowerShell 运行：
+**最简单的办法：** 在 [Releases 页面](https://github.com/raindrops0/anime-voice-collector/releases/latest)下载 `anime-voice-collector-…-windows.zip`，解压到短一点的路径，比如 `D:\avoc`，双击 `start.bat`。第一次启动要下载约 5 GB，所有东西都放在这个文件夹里。下文要运行 `uv run …` 的地方，在 `terminal.bat` 打开的窗口里运行。详见 [Set up](docs/USAGE.md#set-up)（英文）。
+
+**用 git：** 还需要 [uv](https://docs.astral.sh/uv/)（它会自动装好合适的 Python）。还没装 uv 的话，打开 PowerShell 运行：
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
@@ -75,7 +76,7 @@ uv sync --locked
 - **主字幕**：和对白对得上的字幕（`.ass` 或 `.srt`），每句切成一段，最好是原声语言的，比如日语动画就用日语字幕；
 - 想要的话，再加一份**辅助字幕**，也就是你看得懂的字幕，比如译文。它只在标注时用小字显示在每句台词下面，不影响别的。
 
-在你选的一个文件夹上启动界面，这里叫 `workspace`：
+在你选的一个文件夹上启动界面，这里叫 `workspace`（`start.bat` 会替你做这一步）：
 
 ```bash
 uv run avoc app workspace

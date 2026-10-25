@@ -45,13 +45,14 @@ Here you label a few lines while watching the scene. A small model learns your c
 - ⌨️ **Keyboard first,** and every step can be undone, even an earlier one alone, from the history.
 - 🈶 **The words actually said.** The exported text is in the language spoken, even if you read a translation while labeling.
 - 📦 **Export** one folder per character for RVC, or GPT-SoVITS with each line's text, at the quality of the video.
-- 🔒 **Runs on your machine.** Nothing is uploaded.
 
 ## Install
 
-You need Windows and [uv](https://docs.astral.sh/uv/) (it installs the right Python for you). An NVIDIA graphics card is strongly recommended; without one, removing the music from one episode takes much longer.
+You need Windows. An NVIDIA graphics card is strongly recommended; without one, removing the music from one episode takes much longer.
 
-If you don't have uv yet, open PowerShell and run:
+**The easy way:** download `anime-voice-collector-…-windows.zip` from the [Releases page](https://github.com/raindrops0/anime-voice-collector/releases/latest), unzip it to a short path such as `D:\avoc`, and double-click `start.bat`. The first start downloads about 5 GB; everything stays in that folder. Where the README says `uv run …` below, run it in the window `terminal.bat` opens. More in [Set up](docs/USAGE.md#set-up).
+
+**With git:** you also need [uv](https://docs.astral.sh/uv/) (it installs the right Python for you). If you don't have it yet, open PowerShell and run:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
@@ -75,7 +76,7 @@ For each episode you need:
 - **main subtitles** whose lines match the dialogue (`.ass` or `.srt`); each line becomes one clip. They are best in the language spoken, such as Japanese subtitles for a Japanese anime;
 - if you like, **secondary subtitles** you can read, such as a translation. They are shown in small type under each line while labeling and change nothing else.
 
-Start the app on a folder of your choice, here `workspace`:
+Start the app on a folder of your choice, here `workspace` (`start.bat` does this for you):
 
 ```bash
 uv run avoc app workspace

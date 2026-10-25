@@ -32,11 +32,11 @@ TOKEN_PAGE = "https://huggingface.co/pyannote/speaker-diarization-community-1"
 TOKEN_SETTINGS = "https://huggingface.co/settings/tokens"
 TOKEN_HOWTO = Words(
     f"登录 Hugging Face（没有账号就免费注册），在 {TOKEN_PAGE} 同意使用条款，"
-    f"在 {TOKEN_SETTINGS} 新建一个 Read 类型的令牌，再在 avoc 的文件夹里运行 uv run hf auth login，"
-    "粘贴这个令牌",
+    f"在 {TOKEN_SETTINGS} 新建一个 Read 类型的令牌，再在 avoc 的文件夹里运行 uv run hf auth login"
+    "（用 Windows 下载包的话，在双击 terminal.bat 打开的窗口里运行），粘贴这个令牌",
     f"Log in to Hugging Face (sign up for free if you have no account), accept the terms of use at "
     f"{TOKEN_PAGE}, create a Read token at {TOKEN_SETTINGS}, then run uv run hf auth login in the "
-    "avoc folder and paste the token",
+    "avoc folder (with the Windows download, in the window terminal.bat opens) and paste the token",
 )
 NO_TOKEN_HINT = Words(
     "没给字幕偏移，要用 pyannote 自动测，但这台机器没有 Hugging Face 令牌。"
