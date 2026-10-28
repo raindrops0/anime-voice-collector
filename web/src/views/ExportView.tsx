@@ -205,18 +205,18 @@ export function ExportView({
           value={includeAuto ? "auto" : "confirmed"}
           options={[
             ["confirmed", tr("只要人确认过的", "Only confirmed by you")],
-            ["auto", tr("再加上机器有把握的", "Plus the machine's confident ones")],
+            ["auto", tr("再加上机器很自信的", "Plus the machine's confident ones")],
           ]}
           onPick={(v) => setIncludeAuto(v === "auto")}
         />
         <Note>
           {includeAuto
             ? tr(
-                `机器有把握指把握不低于 ${pct(state.model.auto_confidence)}，第 3 集上这一档约 97% 判对。训练数据里混进别人的声音，模型就会学歪。`,
+                `机器很自信指自信程度不低于 ${pct(state.model.auto_confidence)}，第 3 集上这一档约 97% 判对。训练数据里混进别人的声音，模型就会学歪。`,
                 `Confident means at least ${pct(state.model.auto_confidence)} sure; on episode 3 about 97% of these were right. Other people's voices in the training data make the voice model learn the wrong thing.`,
               )
             : tr(
-                "最干净。数据不够时再考虑加上机器有把握的。",
+                "最干净。数据不够时再考虑加上机器很自信的。",
                 "The cleanest. Add the machine's confident ones only if you don't have enough.",
               )}
         </Note>
@@ -260,17 +260,26 @@ export function ExportView({
           <SpokenTexts state={state} setState={setState} toast={toast} />
         </Section>
       )}
-      <Section title={tr("输出到", "Output folder")}>
-        <PathInput kind="folder" value={out} onChange={setOut} toast={toast} />
+      {state.demo ? (
         <Note>
           {tr(
-            "相对路径从启动 avoc 的目录算起。",
-            "A relative path starts from the folder you launched avoc in.",
+            "这是在线试用，不能导出文件。装到自己电脑上就能导出。",
+            "This is the online demo, so it does not export files. Install avoc on your computer to export.",
           )}
         </Note>
-      </Section>
+      ) : (
+        <Section title={tr("输出到", "Output folder")}>
+          <PathInput kind="folder" value={out} onChange={setOut} toast={toast} />
+          <Note>
+            {tr(
+              "相对路径从启动 avoc 的目录算起。",
+              "A relative path starts from the folder you launched avoc in.",
+            )}
+          </Note>
+        </Section>
+      )}
       <div className="flex gap-2">
-        <Button disabled={busy || picked.size === 0} onClick={run}>
+        <Button disabled={busy || picked.size === 0 || state.demo} onClick={run}>
           {busy
             ? tr("正在导出…", "Exporting…")
             : tr(`导出 ${picked.size} 个角色`, `Export ${many(picked.size, "character")}`)}

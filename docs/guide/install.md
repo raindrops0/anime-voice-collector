@@ -4,7 +4,7 @@
 
 This page gets the app running on your machine. Next: [make your first dataset](first-dataset.md).
 
-You need Windows. An NVIDIA graphics card is strongly recommended; without one, separating the voices of one episode takes much longer. Linux and macOS are not tested yet ([platforms](../ROADMAP.md#platforms)).
+You need Windows. An NVIDIA graphics card is strongly recommended; without one, separating the voices of one episode can take hours. Only adding episodes needs it: you can [add them on a free cloud GPU](#without-an-nvidia-graphics-card) and label on your own computer. Linux and macOS are not tested yet ([platforms](../ROADMAP.md#platforms)).
 
 ## The Windows download (easiest)
 
@@ -65,3 +65,7 @@ The subtitle offset is how many seconds the subtitle times are off from the soun
 3. Run `uv run hf auth login` and paste it.
 
 The add form shows these steps when the token is missing. Without a token you can still type the offset yourself. Runtime requirements and model sources are in [TOOLS.md](../TOOLS.md).
+
+## Without an NVIDIA graphics card
+
+Only adding episodes needs the graphics card. [This notebook](https://colab.research.google.com/github/raindrops0/anime-voice-collector/blob/main/scripts/colab/add_episodes.ipynb) adds them on Google Colab's free GPU (a T4) from a folder in your Google Drive; its first cell says what to upload where. Afterwards, download the workspace folder and open it with `avoc app` here. A workspace can be moved to another computer as long as the videos and subtitles are inside it, as the notebook keeps them in `input/`. The notebook runs [add_all.py](../../scripts/colab/add_all.py).

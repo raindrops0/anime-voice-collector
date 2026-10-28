@@ -49,7 +49,8 @@ interface TopBarProps {
   todo: Record<string, number>;
   episode: string | null;
   setEpisode: (name: string) => void;
-  onAdd: () => void;
+  /* Left out in the online demo, which cannot add episodes. */
+  onAdd?: () => void;
   /* How many episodes were left unfinished, shown beside "Add an episode". */
   unfinished: number;
   view: View;
@@ -75,7 +76,10 @@ interface TopBarProps {
 /* A box of view tabs, in the look of shadcn's tabs. They stay plain buttons: each one only switches the view. */
 function TabBox({ children }: { children: ReactNode }) {
   return (
-    <nav className="flex flex-none items-center gap-0.5 rounded-lg bg-muted p-[3px]">
+    <nav
+      data-tour="views"
+      className="flex flex-none items-center gap-0.5 rounded-lg bg-muted p-[3px]"
+    >
       {children}
     </nav>
   );
@@ -88,7 +92,7 @@ export function TopBar(p: TopBarProps) {
   const workHint =
     p.work > 0
       ? tr(
-          `。${p.episode} 还有 ${p.work} 句要你处理：机器没把握，或还没有猜测。「只看要处理的」列的就是这些`,
+          `。${p.episode} 还有 ${p.work} 句要你处理：机器不自信，或还没有猜测。「只看要处理的」列的就是这些`,
           `. ${lines(p.work)} in ${p.episode} still to do: the machine isn't sure, or has no guess yet. "Only to do" lists them`,
         )
       : "";
@@ -171,16 +175,20 @@ export function TopBar(p: TopBarProps) {
           {/* Focus goes nowhere after a pick, so the arrow keys meant for the next line don't open the menu again. */}
           <DropdownMenuContent finalFocus={false} className="w-auto min-w-40">
             {/* At the top, so it is in sight without scrolling past a long list of episodes. */}
-            <DropdownMenuItem onClick={p.onAdd}>
-              <PlusIcon />
-              {tr("加一集…", "Add an episode…")}
-              {p.unfinished > 0 && (
-                <span className="text-xs text-warning">
-                  {tr(`（${p.unfinished} 集没做完）`, `(${p.unfinished} unfinished)`)}
-                </span>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {p.onAdd && (
+              <>
+                <DropdownMenuItem onClick={p.onAdd}>
+                  <PlusIcon />
+                  {tr("加一集…", "Add an episode…")}
+                  {p.unfinished > 0 && (
+                    <span className="text-xs text-warning">
+                      {tr(`（${p.unfinished} 集没做完）`, `(${p.unfinished} unfinished)`)}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuRadioGroup value={p.episode} onValueChange={(v) => p.setEpisode(v)}>
               {p.episodes.map((name) => (
                 <DropdownMenuRadioItem key={name} value={name} closeOnClick>
@@ -253,9 +261,18 @@ export function TopBar(p: TopBarProps) {
         </Button>
       </Tip>
       <Tip
-        text={tr("四个页面是做什么的，怎么上手", "What the four views are for, and how to start")}
+        text={tr(
+          "带你走一遍：主要界面和基础操作",
+          "A walk-through of the main parts and the basic steps",
+        )}
       >
-        <Button variant="ghost" size="sm" className="flex-none" onClick={p.onGuide}>
+        <Button
+          data-tour="guide"
+          variant="ghost"
+          size="sm"
+          className="flex-none"
+          onClick={p.onGuide}
+        >
           {tr("指南", "Guide")}
         </Button>
       </Tip>

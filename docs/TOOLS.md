@@ -12,7 +12,7 @@ Automatic subtitle timing requires accepting the terms of [pyannote community-1]
 
 ## Model sources
 
-The project uses models from [audio-separator](https://github.com/nomadkaraoke/python-audio-separator), [anime_speaker_embedding](https://github.com/litagin02/anime_speaker_embedding), [ReDimNet2](https://github.com/PalabraAI/redimnet2), [pyannote](https://huggingface.co/pyannote/speaker-diarization-community-1) and [torchaudio](https://docs.pytorch.org/audio/stable/). Check each source's license and terms when using or redistributing model files.
+The project uses models from [audio-separator](https://github.com/nomadkaraoke/python-audio-separator), [anime_speaker_embedding](https://github.com/litagin02/anime_speaker_embedding), [ReDimNet2](https://github.com/PalabraAI/redimnet2), [pyannote](https://huggingface.co/pyannote/speaker-diarization-community-1) and [torchaudio](https://docs.pytorch.org/audio/stable/). The [low-quality hint](features/labeling.md#the-maybe-low-quality-hint) starts from this project's own weights, [RainbowZL/avoc-quality-starter](https://huggingface.co/RainbowZL/avoc-quality-starter) (MIT). Check each source's license and terms when using or redistributing model files.
 
 ## Development tools
 

@@ -92,7 +92,7 @@ export function Help({ onClose, onGuide }: { onClose: () => void; onGuide: () =>
     ],
     [
       tr("角色视图里 [P]", "[P] in Characters"),
-      tr("从最没把握的开始连着播", "Play one after another, least sure first"),
+      tr("从最不自信的开始连着播", "Play one after another, least sure first"),
     ],
     [
       "[G] / [S] / [O] / [E]",
@@ -136,8 +136,8 @@ export function Help({ onClose, onGuide }: { onClose: () => void; onGuide: () =>
               onClick={onGuide}
             >
               {tr(
-                "打开上手指南：四个页面各是做什么的",
-                "Open the getting-started guide: what each of the four views is for",
+                "再走一遍指南：主要界面和基础操作",
+                "Run the walk-through again: the main parts and the basic steps",
               )}
             </Button>
           </Note>

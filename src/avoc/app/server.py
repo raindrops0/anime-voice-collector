@@ -73,6 +73,26 @@ def reloaded_app() -> Any:
     )
 
 
+DEMO_OFF = (
+    "/api/add",
+    "/api/pick",
+    "/api/show-folder",
+    "/api/install-ffmpeg",
+    "/api/audio-tracks",
+    "/api/subtitle-styles",
+    "/api/export",
+)
+"""What the online demo turns off: everything that reads or writes files on the server's disk
+outside the workspace, or starts long work on it. Commands that add or export are refused in
+`Operations` too."""
+
+
+def _demo_off(method: str, path: str) -> bool:
+    if path == "/api/doctor":
+        return True
+    return method == "POST" and any(path == p or path.startswith(p + "/") for p in DEMO_OFF)
+
+
 def _ignore_closed_connection(loop: Any, context: dict[str, Any]) -> None:
     """On Windows, asyncio prints a long ConnectionResetError traceback each time the browser
     drops a connection first (a refresh, a closed tab, a video seek). It is harmless, so it is not
@@ -146,8 +166,16 @@ def create_app(state: AppState) -> Any:
         change may still use the old styles or script. The same for cuts and episode copies: their
         address stays the same when PICTURE_PAD changes or a copy is made again."""
         LANGUAGE.set("en" if request.headers.get("x-language") == "en" else "zh")
-        response = await call_next(request)
         path = request.url.path
+        if state.demo and _demo_off(request.method, path):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "code": "demo",
+                    "detail": say("试用版不能做这一步", "The demo cannot do this"),
+                },
+            )
+        response = await call_next(request)
         if path == "/" or path.startswith(("/static/", "/media/", "/episode-media/")):
             response.headers["Cache-Control"] = "no-cache"
         return response

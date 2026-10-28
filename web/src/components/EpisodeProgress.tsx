@@ -12,7 +12,7 @@ export function EpisodeProgress({ progress }: { progress: Progress }) {
   return (
     <Tip
       text={tr(
-        "绿色是已经确认的，浅绿是机器有把握的",
+        "绿色是已经确认的，浅绿是机器很自信的",
         "Green is confirmed, light green is the machine's confident ones",
       )}
     >

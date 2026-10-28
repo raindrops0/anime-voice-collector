@@ -23,6 +23,21 @@ Each target character has two choices, picked in one go:
 
 Use low quality for clips with heavy background sound or with several people talking at once. These clips are not used to recognize the character, and they are skipped on export and written to `rejected.tsv`. With two target characters, the bottom bar has five choices in all: clean and low quality for each, plus "Not a target". Next to each target's guess on the left there is also a "Low quality" button. Changing a clip to the clean target or to "Not a target" removes "Low quality".
 
+## The "maybe low quality" hint
+
+The machine also guesses how likely each line is low quality. It is only a hint; you decide.
+
+| Chance | What happens |
+| --- | --- |
+| 50% or more | A red dashed "Maybe low quality" tag. The line no longer counts as work to do, and "Confirm the rest" in Characters leaves it out. |
+| 90% or more, and not labeled | The line is also set aside, like a skipped line. |
+
+Where these lines are listed: [Scenes](scenes.md) and [Characters](characters.md), under "Maybe low quality".
+
+- **It learns from your labels.** Lines labeled as a target teach it what clean sounds like; lines marked low quality teach it the rest. "Not a target" and ignored lines teach it nothing. When you find a hinted line that sounds clean, label it as the clean target: that is how the hint fits your anime.
+- **It works from the first label,** because it starts from weights trained on other anime. The app downloads them once from [Hugging Face](https://huggingface.co/RainbowZL/avoc-quality-starter), under 100 KB: only the model's numbers, no audio. Nothing of yours is uploaded. Without them (offline, for example) the hint waits until 10 lines are labeled clean and 10 low quality.
+- **Episodes added before the hint existed** have no hint until you run [`avoc quality`](../reference/commands.md) on the workspace.
+
 ## Lines nobody can tell
 
 When you cannot tell who a line is, for example a passer-by voiced by a target's voice actor, press X ("Ignore line"). It moves to "Ignored", is not used for training and is not exported. Backspace or Z takes it back.
@@ -61,4 +76,4 @@ Taking back is a step of its own, so the history only grows, and a take-back can
 - The tabs at the top come in two boxes. The first holds the episode menu with Groups and Scenes, which show only that episode. The second holds Characters, which covers every episode. Export, on the right of the bar, also covers every episode.
 - The page is light by default; switch to dark mode at the top right. Next to it, EN / 中文 switches the page language; the first time, it follows the browser's language. Messages from the server follow the page language. Both choices are remembered in the browser.
 - The part of the address after `#` records the view, episode, character and selected line, so a refresh returns to the same spot.
-- The first time a workspace with episodes but no labels is opened, a getting-started guide opens. Open it again with "Guide" in the top bar, or from the shortcuts dialog (`?`).
+- The first time a workspace with episodes but no labels is opened, a walk-through starts. It lights up each main part of the screen in turn: the view tabs, the player, a group, "New target", the bottom bar, Scenes, Characters and Undo. Two steps wait until you do the thing once (tick a line, add a target), or you can skip them. Open it again with "Guide" in the top bar, or from the shortcuts dialog (`?`).

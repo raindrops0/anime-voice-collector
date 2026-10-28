@@ -90,6 +90,9 @@ class WorkspaceService:
         self._quality_key: Any = None
         self.quality_info: dict[str, Any] = {}
         self.background = background
+        self.demo = False
+        """Set by the online demo (avoc.app.demo): adding episodes and exporting are turned off,
+        and the page says it is a demo."""
         from avoc.playback import Playback
 
         self.playback = Playback(self)
@@ -412,6 +415,7 @@ class WorkspaceService:
             "can_undo": self.store.can_undo(),
             "outdated": _code_stamp() > self.code_stamp,
             "purpose": self.purpose(),
+            "demo": self.demo,
         }
 
     # What the voices are for

@@ -370,6 +370,28 @@ def test_with_one_target_it_is_the_old_logistic_regression() -> None:
     assert np.abs(got - expected).max() < 2e-3
 
 
+def test_without_torch_the_training_lands_in_the_same_place() -> None:
+    """The online demo serves without torch; its SciPy training must give the same answer."""
+    from avoc.model import _fit_scipy, fit
+
+    rng = np.random.default_rng(4)
+    features = rng.normal(0, 1, (80, 6))
+    allowed = np.zeros((80, 3), dtype=bool)
+    allowed[np.arange(80), rng.integers(0, 3, 80)] = True
+    allowed[:10, 2] = True  # some rows leave two choices
+    w, b = fit(features, allowed)
+    w2, b2 = _fit_scipy(features, allowed, None)
+
+    def chances(w: np.ndarray, b: np.ndarray) -> np.ndarray:
+        s = features @ w + b
+        e = np.exp(s - s.max(1, keepdims=True))
+        return e / e.sum(1, keepdims=True)
+
+    assert np.abs(chances(w, b) - chances(w2, b2)).max() < 1e-4
+    w3, b3 = _fit_scipy(features, allowed, (w2, b2))
+    assert np.abs(chances(w3, b3) - chances(w2, b2)).max() < 1e-6
+
+
 def test_other_only_counts_against_the_targets_of_its_time() -> None:
     # A and C have different voices. C's clips were labeled "other" while C was not yet a target.
     # C was made a target later, so those labels mean "C or other", not "not C".

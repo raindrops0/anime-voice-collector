@@ -65,6 +65,10 @@ import { SceneView } from "./views/SceneView";
 import { Welcome } from "./views/Welcome";
 
 const VIEWS: View[] = ["groups", "scene", "roles", "export"];
+/* The credit the voices' terms ask for (scripts/demo/make_episodes.py). */
+const DEMO_VOICES = ["ずんだもん", "四国めたん", "九州そら", "中国うさぎ", "中部つるぎ"]
+  .map((name) => `VOICEVOX:${name}`)
+  .join(", ");
 /* A list request was overtaken by a later one. Its result is dropped; this is not an error. */
 const STALE = new Error("stale");
 /* The position saved after # in the address when the page opened; see where App writes it back. */
@@ -217,6 +221,8 @@ export function App() {
   /* The workspace's choice, once made, is what every view goes by. Set before the views below read it. */
   if (state?.purpose && state.purpose !== currentPurpose()) setPurpose(state.purpose);
   const dockOrder = useRef<string[]>([]);
+  /* New names a rename has put in the bottom bar's order, kept there until the list from the server has them. */
+  const renamedTo = useRef(new Set<string>());
   const playerRef = useRef<Player | null>(null);
   /* What to do when the stage's line plays to its end: in continuous play, go on to the next line. */
   const lineEnded = useRef<() => void>(() => {});
@@ -250,9 +256,14 @@ export function App() {
   const episodeInfo = state?.episodes.find((e) => e.name === episode);
   /* The order of the bottom bar stays fixed for the session, with new characters added at the end, so number keys
      don't move under your hand. It is filled in while rendering, so a new character shows up at once without
-     waiting for the next refresh. Names that are gone can stay in the order. On a rename the new name first takes
-     the place right after the old one; see renameRole. */
+     waiting for the next refresh. On a rename the new name first takes the place right after the old one; see
+     renameRole. Names that are gone leave the order: a new character is first called "Character 1" or the like,
+     a name freed again once it is named or taken back, and the next new character, given the same name, would
+     take that old place instead of the end, moving the keys of the ones after it. */
   if (state) {
+    const names = new Set(state.roles.map((r) => r.name));
+    for (const n of names) renamedTo.current.delete(n);
+    dockOrder.current = dockOrder.current.filter((n) => names.has(n) || renamedTo.current.has(n));
     const known = new Set(dockOrder.current);
     for (const r of state.roles) if (!known.has(r.name)) dockOrder.current.push(r.name);
   }
@@ -1023,8 +1034,10 @@ export function App() {
     if (!role || !next || next === role) return;
     /* A rename keeps the number key: the new name takes the old name's place. On a merge the old name leaves the bar. */
     const renamed = !roles[next];
-    if (renamed)
+    if (renamed) {
       dockOrder.current = dockOrder.current.flatMap((n) => (n === role ? [n, next] : [n]));
+      renamedTo.current.add(next);
+    }
     const result = await send(
       "/api/roles",
       { name: role, new_name: next },
@@ -1032,9 +1045,8 @@ export function App() {
         ? tr(`已改名为 ${next}`, `Renamed to ${next}`)
         : tr(`已并进 ${next}`, `Merged into ${next}`),
     );
-    if (result) {
-      setRole(next);
-    }
+    if (result) setRole(next);
+    else renamedTo.current.delete(next);
   };
   const toggleTarget = async () => {
     const info = role ? roles[role] : undefined;
@@ -1100,14 +1112,17 @@ export function App() {
       /* Like a rename in the Characters view: the new name keeps the number key. */
       const old = name;
       dockOrder.current = dockOrder.current.flatMap((n) => (n === old ? [n, typed] : [n]));
+      renamedTo.current.add(typed);
       if (
         !(await send(
           "/api/roles",
           { name, new_name: typed },
           tr(`已起名为 ${typed}`, `Named ${typed}`),
         ))
-      )
+      ) {
+        renamedTo.current.delete(typed);
         return;
+      }
       name = typed;
     }
     if (!image) return;
@@ -1205,12 +1220,16 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (crop || renaming) return;
-      if (help || addOpen || guide) {
+      if (help || addOpen) {
         if (e.key === "Escape") {
           setHelp(false);
           setAddOpen(false);
-          closeGuide();
         }
+        return;
+      }
+      /* The walk-through leaves every other key to the page, as it has the person use them. */
+      if (guide && e.key === "Escape") {
+        closeGuide();
         return;
       }
       if (typing(e.target) || (e.ctrlKey && e.key !== "z") || e.metaKey || e.altKey) return;
@@ -1320,7 +1339,7 @@ export function App() {
   /* Messages show above everything. At the bottom they would cover a dialog's buttons, so while one is open they
      move to the top of the window. Otherwise they sit just above the bottom bar, whose height changes when its
      chips wrap to a second row. */
-  const dialog = !!crop || renaming || help || guide || addOpen;
+  const dialog = !!crop || renaming || help || addOpen;
   const toaster = (
     <Toaster
       theme={theme === "dark" ? "dark" : "light"}
@@ -1392,7 +1411,7 @@ export function App() {
         todo={Object.fromEntries(state.episodes.map((e) => [e.name, e.work]))}
         episode={episode}
         setEpisode={setEpisode}
-        onAdd={() => setAddOpen(true)}
+        onAdd={state.demo ? undefined : () => setAddOpen(true)}
         unfinished={Object.keys(state.skipped || {}).length}
         view={view}
         setView={setView}
@@ -1408,6 +1427,27 @@ export function App() {
         onGuide={() => setGuide(true)}
         onHelp={() => setHelp(true)}
       />
+      {state.demo && (
+        <div className="border-b bg-muted px-[18px] py-1.5 text-[13px] text-muted-foreground">
+          {tr(
+            "在线试用：两集合成的日语短剧（声音：",
+            "Online demo: two short made-up Japanese episodes (voices: ",
+          )}
+          {DEMO_VOICES}
+          {tr(
+            "）。你的标注只保存在这次访问里，不能添加剧集或导出。",
+            "). Your labels stay only in this visit; adding episodes and exporting are off.",
+          )}{" "}
+          <a
+            className="underline underline-offset-2"
+            href="https://github.com/raindrops0/anime-voice-collector"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
+      )}
       {state.outdated !== false && (
         <div className="border-b bg-warning/15 px-[18px] py-2 text-[13px] text-warning">
           {withKeys(
@@ -1455,7 +1495,10 @@ export function App() {
         {showStage && <Divider width={fitStage(stageWidth)} setWidth={setStageWidth} />}
         {/* The scrollbar's room is kept even when the list is short, so the width does not change when lines are
             ticked into view; it did, and boxes near the right edge jumped to the next line. */}
-        <main className="@container min-h-0 scroll-pt-20 [scrollbar-gutter:stable] overflow-y-auto px-5 pt-2 pb-10">
+        <main
+          data-tour="main"
+          className="@container min-h-0 scroll-pt-20 [scrollbar-gutter:stable] overflow-y-auto px-5 pt-2 pb-10"
+        >
           {view === "scene" && (
             <SceneView
               clips={clips}
@@ -1578,10 +1621,16 @@ export function App() {
       )}
       {guide && (
         <Guide
-          onClose={closeGuide}
-          onStart={() => {
+          progress={{
+            ticked: Object.values(picked).reduce((n, ids) => n + (ids?.size ?? 0), 0),
+            targets: state.roles.filter((r) => r.target).length,
+          }}
+          demo={!!state.demo}
+          hidden={dialog}
+          setView={setView}
+          onClose={(finished) => {
             closeGuide();
-            setView("groups");
+            if (finished) setView("groups");
           }}
         />
       )}

@@ -138,6 +138,8 @@ class Operations:
                 return batch
 
             return {**ws.change(revert), **report}
+        if ws.demo and operation in ("add", "export"):
+            raise ValueError(say("试用版不能添加或导出", "the demo cannot add or export"))
         if operation == "add":
             from avoc.adding import clean_path
             from avoc.pipeline import next_episode_name

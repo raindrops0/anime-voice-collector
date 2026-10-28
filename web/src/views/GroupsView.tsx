@@ -139,8 +139,9 @@ export function GroupsView({
 
   /* The cards' measured heights, by group key. A card that gets shorter (all its lines labeled, so its choices go)
      keeps its old height here, so the cards below it don't jump to another column while the person works. The
-     heights belong to one set of groups at one column width, and start again when either changes. */
-  const shape = `${lanes}|${groups.map((g) => g.clips[0]?.id).join()}`;
+     heights belong to one set of groups at one column width, and start again when either changes: a wider page
+     makes the cards shorter, and kept heights would leave gaps between them. */
+  const shape = `${Math.round(column)}|${groups.map((g) => g.clips[0]?.id).join()}`;
   const [measured, setMeasured] = useState<{ shape: string; sizes: Record<number, number> }>({
     shape: "",
     sizes: {},
@@ -228,7 +229,7 @@ export function GroupsView({
         <EpisodeProgress progress={progress} />
         <Tip
           text={tr(
-            "只给要处理的台词分组，跟「场景」里「只看要处理的」是同一批。机器有把握的在「角色」里核对",
+            "只给要处理的台词分组，跟「场景」里「只看要处理的」是同一批。机器很自信的在「角色」里核对",
             'Only lines still to do are grouped, the same lines as "Only to do" in Scenes. Lines the machine is confident about are checked in Characters',
           )}
         >
@@ -320,6 +321,7 @@ export function GroupsView({
                   key={g.key}
                   ref={measure}
                   data-key={g.key}
+                  data-tour={i === 0 ? "group" : undefined}
                   className="absolute top-0"
                   style={{
                     width: column,
