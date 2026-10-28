@@ -14,7 +14,7 @@
 [![shadcn/ui on Base UI](https://img.shields.io/badge/shadcn%2Fui-Base_UI-000000.svg?logo=shadcnui&logoColor=white)](https://ui.shadcn.com/)
 [![Platform: Windows · Linux/macOS untested](https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux%2FmacOS%20untested-0078D6.svg)](#platforms)
 
-**[Try it online](https://avoc-online-demo.onrender.com)** (may take a minute to wake up) · [Install](#install) · [Your first episode](#your-first-episode) · [Labeling](#labeling) · [What you get](#what-you-get) · [Questions](#questions) · [Docs](docs/index.md)
+**[Try it online](https://raindrops0.github.io/avoc-online-demo/)** · [Install](#install) · [Your first episode](#your-first-episode) · [Labeling](#labeling) · [What you get](#what-you-get) · [Questions](#questions) · [Docs](docs/index.md)
 
 <img src="https://github.com/user-attachments/assets/c19aeaa2-5064-4783-9bc1-7193e865da50" width="800" alt="Lines from an episode on a timeline, each sorted into a folder by who said it: Mio, Rin or Other">
 

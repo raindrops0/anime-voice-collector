@@ -5,6 +5,7 @@ The files that run the online demo of [anime-voice-collector](https://github.com
 - `Dockerfile`: the server, without torch, for a host with 512 MB of memory.
 - `template/`: the demo workspace.
 - `wheels/`: avoc itself.
+- `docs/`: the waiting page, published by GitHub Pages at https://raindrops0.github.io/avoc-online-demo/. The server sleeps when nobody has used it for 15 minutes; the page wakes it up and opens the demo when it is ready.
 
 The server listens on the port in the `PORT` environment variable (8000 unless set).
 

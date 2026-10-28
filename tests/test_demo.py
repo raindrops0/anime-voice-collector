@@ -79,6 +79,11 @@ def test_a_spare_copy_waits_for_the_next_visitor(tmp_path: Path, monkeypatch) ->
     spare_key, _ = hub.spare
     assert [p.name for p in hub.folder.iterdir()] == [spare_key]  # the warm-up copy is gone
     client = TestClient(hub)
+    # The waiting page on another site may read whether the server is up, without a copy.
+    awake = client.get("/awake")
+    assert awake.json() == {"awake": True, "ready": True}
+    assert awake.headers["access-control-allow-origin"] == "*"
+    assert not hub.visits
     assert client.get("/").status_code == 200
     assert list(hub.visits) == [spare_key]
     assert client.get("/api/state").json()["roles"] == []

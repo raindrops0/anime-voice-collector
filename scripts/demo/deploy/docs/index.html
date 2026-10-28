@@ -1,0 +1,170 @@
+<!doctype html>
+<!--
+  The waiting page of the online demo, published by GitHub Pages from this folder. The demo's
+  server sleeps when nobody has used it for a while; this page wakes it up, shows what the demo
+  is while it starts, and opens the demo as soon as it is ready. ?server=URL tries another server.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>anime-voice-collector: online demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fafafa;
+        --fg: #18181b;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --accent: #7f77dd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111113;
+          --fg: #f4f4f5;
+          --muted: #a1a1aa;
+          --line: #27272a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC",
+          sans-serif;
+      }
+      main {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 4px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--line);
+        overflow: hidden;
+        margin: 20px 0 8px;
+      }
+      .bar div {
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+        transition: width 1s linear;
+      }
+      img {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 24px;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1 data-zh="anime-voice-collector 在线试用" data-en="anime-voice-collector: online demo"></h1>
+      <p
+        data-zh="两段虚构的日语短剧，已经处理好。你可以标出一个角色的几句台词，看机器怎样猜出其余的。你的标注只在这次访问里有效。"
+        data-en="Two short made-up Japanese episodes, already processed. Label a few lines of one character and watch the machine guess the rest. Your labels stay only in this visit."
+      ></p>
+      <div class="bar"><div id="bar"></div></div>
+      <p id="status"></p>
+      <p class="muted" id="note"></p>
+      <p class="muted">
+        <a id="open" data-zh="直接打开试用页" data-en="Open the demo directly"></a> ·
+        <a
+          href="https://github.com/raindrops0/anime-voice-collector"
+          data-zh="项目主页"
+          data-en="Project page"
+        ></a>
+      </p>
+      <img
+        id="gif"
+        data-zh="https://github.com/user-attachments/assets/bdda1308-5ce1-43ae-9d5f-36fc5e579a5b"
+        data-en="https://github.com/user-attachments/assets/1e34c75d-3abd-4b24-8196-2888de33e0d6"
+        alt=""
+      />
+    </main>
+    <script>
+      const SERVER = (
+        new URLSearchParams(location.search).get("server") ||
+        "https://avoc-online-demo.onrender.com"
+      ).replace(/\/$/, "");
+      const zh = navigator.language.toLowerCase().startsWith("zh");
+      const say = (z, e) => (zh ? z : e);
+      document.documentElement.lang = zh ? "zh-CN" : "en";
+      for (const el of document.querySelectorAll("[data-zh]")) {
+        const text = zh ? el.dataset.zh : el.dataset.en;
+        if (el.tagName === "IMG") el.src = text;
+        else el.textContent = text;
+      }
+      document.title = say("anime-voice-collector 在线试用", document.title);
+      document.getElementById("open").href = SERVER + "/";
+
+      const EXPECTED = 60; // seconds a free server usually takes to wake
+      const SLOW = 180;
+      const READY_WAIT = 20; // once up, how long to wait for a copy to be ready
+      const began = Date.now();
+      let awakeAt = null;
+      const seconds = () => Math.round((Date.now() - began) / 1000);
+      const status = document.getElementById("status");
+      const note = document.getElementById("note");
+      const bar = document.getElementById("bar");
+
+      function show() {
+        const s = seconds();
+        bar.style.width = Math.min(95, (s / EXPECTED) * 100) + "%";
+        status.textContent = awakeAt
+          ? say("马上就好……", "Almost there…")
+          : say(
+              `试用服务器闲置后会休眠，正在叫醒它，通常要一分钟左右。已等 ${s} 秒。`,
+              `The demo server sleeps when idle and is waking up; this usually takes about a minute. ${s} s so far.`,
+            );
+        if (s >= SLOW)
+          note.textContent = say(
+            "比平时慢。可以再等等，或点下面的链接直接打开。",
+            "This is slower than usual. Wait a little longer, or open the demo directly below.",
+          );
+      }
+
+      async function check() {
+        const stop = new AbortController();
+        const timer = setTimeout(() => stop.abort(), 30000);
+        try {
+          const r = await fetch(SERVER + "/awake", { cache: "no-store", signal: stop.signal });
+          if (r.ok) {
+            const body = await r.json();
+            awakeAt ??= Date.now();
+            if (body.ready || Date.now() - awakeAt > READY_WAIT * 1000) {
+              bar.style.width = "100%";
+              location.replace(SERVER + "/");
+              return;
+            }
+          }
+        } catch {
+          // Still asleep: the host answers with its own loading page, which this page cannot read.
+        } finally {
+          clearTimeout(timer);
+        }
+        setTimeout(check, 2000);
+      }
+
+      show();
+      setInterval(show, 1000);
+      check();
+    </script>
+  </body>
+</html>

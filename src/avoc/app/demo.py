@@ -38,6 +38,9 @@ COOKIE = "avoc_demo"
 LINK_SIZE = 256 * 1024
 """Files at least this big are linked into each visitor's copy instead of copied. They are only
 read: media and caches. Everything under `labels/` is always copied."""
+AWAKE = "/awake"
+"""Asked by the waiting page (scripts/demo/deploy/docs/index.html) while the host wakes the
+server up."""
 STARTER = "quality-starter.npz"
 """The low-quality hint's starter weights, when put in the template (scripts/demo/make_deploy.py
 does), so the server needs no network to start. Otherwise they are downloaded."""
@@ -268,6 +271,12 @@ class DemoHub:
                     return
         if scope["type"] != "http":
             return
+        if scope["path"] == AWAKE:
+            # The waiting page on another site asks this until the server is up, then sends the
+            # visitor here. `ready` means a copy is waiting, so the page opens at once.
+            body = {"awake": True, "ready": self.spare is not None}
+            await _answer(send, 200, body, cors=True)
+            return
         key = _cookie(scope)
         with self.lock:
             visit = self.visits.get(key or "")
@@ -280,7 +289,8 @@ class DemoHub:
             if scope["path"] != "/":
                 # Not a page load: a stale tab after its copy was dropped. Say so instead of
                 # quietly answering from a new, empty copy.
-                await _answer(send, 410, "This demo copy was closed. Reload the page.")
+                detail = "This demo copy was closed. Reload the page."
+                await _answer(send, 410, {"code": "demo_closed", "detail": detail})
                 return
             import anyio.to_thread
 
@@ -341,17 +351,13 @@ def _https(scope: dict[str, Any]) -> bool:
     return scope.get("scheme") == "https"
 
 
-async def _answer(send: Any, status: int, detail: str) -> None:
-    body = json.dumps({"code": "demo_closed", "detail": detail}).encode()
-    await send(
-        {
-            "type": "http.response.start",
-            "status": status,
-            # Browsers may keep a 410 and answer from it later, even after a new copy is made.
-            "headers": [(b"content-type", b"application/json"), (b"cache-control", b"no-store")],
-        }
-    )
-    await send({"type": "http.response.body", "body": body})
+async def _answer(send: Any, status: int, body: dict[str, Any], cors: bool = False) -> None:
+    # no-store: browsers may keep a 410 and answer from it later, even after a new copy is made.
+    headers = [(b"content-type", b"application/json"), (b"cache-control", b"no-store")]
+    if cors:
+        headers.append((b"access-control-allow-origin", b"*"))
+    await send({"type": "http.response.start", "status": status, "headers": headers})
+    await send({"type": "http.response.body", "body": json.dumps(body).encode()})
 
 
 def main() -> None:

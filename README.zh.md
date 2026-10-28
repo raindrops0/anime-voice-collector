@@ -14,7 +14,7 @@
 [![shadcn/ui on Base UI](https://img.shields.io/badge/shadcn%2Fui-Base_UI-000000.svg?logo=shadcnui&logoColor=white)](https://ui.shadcn.com/)
 [![平台：Windows · Linux/macOS 未测试](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows%20%C2%B7%20Linux%2FmacOS%20%E6%9C%AA%E6%B5%8B%E8%AF%95-0078D6.svg)](#支持的平台)
 
-**[在线试用](https://avoc-online-demo.onrender.com)**（启动可能要一分钟） · [安装](#安装) · [加第一集](#加第一集) · [怎么标注](#怎么标注) · [得到什么](#得到什么) · [常见问题](#常见问题) · [文档（英文）](docs/index.md)
+**[在线试用](https://raindrops0.github.io/avoc-online-demo/)** · [安装](#安装) · [加第一集](#加第一集) · [怎么标注](#怎么标注) · [得到什么](#得到什么) · [常见问题](#常见问题) · [文档（英文）](docs/index.md)
 
 <img src="https://github.com/user-attachments/assets/c19aeaa2-5064-4783-9bc1-7193e865da50" width="800" alt="一集里的台词排在时间轴上，按是谁说的分进 Mio、Rin 和「其他」三个文件夹">
 
