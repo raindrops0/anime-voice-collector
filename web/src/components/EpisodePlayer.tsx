@@ -6,6 +6,8 @@ import { DRIFT, outputLag, playLog, type Player, type Sound } from "../playback"
 /* Seconds before the line's start and end at which the sound turns on, is muted or stops: a timer may wake a few
    milliseconds before the sound's clock gets there. */
 const EARLY = 0.01;
+/* About one frame of the copy, in seconds. */
+const FRAME = 0.04;
 
 interface EpisodePlayerProps {
   clip: Clip;
@@ -64,6 +66,11 @@ export function EpisodePlayer({
   const ownCut = track === "vocals" && extra === 0;
   const shift = ownCut ? heardFrom : 0;
   const soundKey = ownCut ? `${clip.id}-${context}` : `${clip.episode}-${track}`;
+  /* The picture stays hidden until it has been moved to the line, so the frame it was on, from another line or
+     the episode's start, is not shown under the spinner as if it were this line. A drift correction, a replay of
+     the same line or another sound keeps it shown. */
+  const place = `${clip.id}-${context}-${pad}`;
+  const [placedAt, setPlacedAt] = useState<string | null>(null);
   /* What the event handlers below read: the line now, and whether both players should start once there. */
   const now = useRef({
     from,
@@ -151,6 +158,9 @@ export function EpisodePlayer({
 
   /* A new line, more context or another sound: go to the line's start and play it. */
   useEffect(() => {
+    /* A picture already inside the new line stays shown; see `placedAt`. */
+    const v = picture();
+    if (v && !v.seeking && v.currentTime >= from && v.currentTime <= to) setPlacedAt(place);
     jump();
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- only when the line itself changes
   }, [clip.id, context, track, pad]);
@@ -240,13 +250,16 @@ export function EpisodePlayer({
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  /* The picture follows the sound's play and pause. While the sound waits for data it holds still. */
+  /* The picture follows the sound's play and pause. While the sound waits for data it holds still. When it stops
+     past the line's end, it is moved back to the end: by then it may show the next line's picture. */
   const follow = () => {
     const a = audio.current;
     const v = picture();
     if (!a || !v || startWhenThere.current) return;
-    if (a.paused) v.pause();
-    else v.play().catch(() => {});
+    if (a.paused) {
+      v.pause();
+      if (!v.seeking && v.currentTime > now.current.to) v.currentTime = now.current.to - FRAME;
+    } else v.play().catch(() => {});
   };
   const loading = {
     onLoadedMetadata: tryStart,
@@ -299,8 +312,6 @@ export function EpisodePlayer({
       }}
     ></audio>
   );
-  /* A new episode's picture stays hidden until it has first been moved to a line, so its first frame is not shown. */
-  const [placedIn, setPlacedIn] = useState<string | null>(null);
   return hasVideo ? (
     <>
       <video
@@ -308,7 +319,7 @@ export function EpisodePlayer({
         key={clip.episode}
         className={cn(
           "block size-full cursor-pointer object-contain",
-          placedIn !== clip.episode && "invisible",
+          placedAt !== place && "invisible",
         )}
         src={episodeMedia(clip.episode, "video")}
         preload="auto"
@@ -316,8 +327,10 @@ export function EpisodePlayer({
         muted
         onClick={toggle}
         {...loading}
-        onSeeked={() => {
-          setPlacedIn(clip.episode);
+        onSeeked={(e) => {
+          /* A seek to the line before can end after this line was picked: only a picture inside the line counts. */
+          const t = e.currentTarget.currentTime;
+          if (t >= now.current.from - 0.5 && t <= now.current.to) setPlacedAt(place);
           tryStart();
         }}
       ></video>
