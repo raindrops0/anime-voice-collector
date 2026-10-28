@@ -76,7 +76,10 @@ interface TopBarProps {
 /* A box of view tabs, in the look of shadcn's tabs. They stay plain buttons: each one only switches the view. */
 function TabBox({ children }: { children: ReactNode }) {
   return (
-    <nav className="flex flex-none items-center gap-0.5 rounded-lg bg-muted p-[3px]">
+    <nav
+      data-tour="views"
+      className="flex flex-none items-center gap-0.5 rounded-lg bg-muted p-[3px]"
+    >
       {children}
     </nav>
   );
@@ -258,9 +261,18 @@ export function TopBar(p: TopBarProps) {
         </Button>
       </Tip>
       <Tip
-        text={tr("四个页面是做什么的，怎么上手", "What the four views are for, and how to start")}
+        text={tr(
+          "带你走一遍：主要界面和基础操作",
+          "A walk-through of the main parts and the basic steps",
+        )}
       >
-        <Button variant="ghost" size="sm" className="flex-none" onClick={p.onGuide}>
+        <Button
+          data-tour="guide"
+          variant="ghost"
+          size="sm"
+          className="flex-none"
+          onClick={p.onGuide}
+        >
           {tr("指南", "Guide")}
         </Button>
       </Tip>

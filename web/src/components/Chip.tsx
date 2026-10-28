@@ -82,6 +82,7 @@ export function Chip({
   onPick,
   extra,
   flash,
+  tour,
 }: {
   picture: ReactNode;
   children: ReactNode;
@@ -95,12 +96,15 @@ export function Chip({
   extra?: ReactNode;
   /* See useFlash. */
   flash?: number;
+  /* What the walk-through calls this chip when it points at it (see Guide). */
+  tour?: string;
 }) {
   const ref = useFlash<HTMLDivElement>(off ? undefined : flash, "var(--primary)");
   return (
     <Tip text={tip}>
       <div
         ref={ref}
+        data-tour={tour}
         role="button"
         tabIndex={-1}
         aria-disabled={off || undefined}

@@ -27,7 +27,7 @@ The [online demo](https://raindrops0.github.io/avoc-online-demo/) is the real ap
 2. Label a few more in **Scenes**, and watch the machine start guessing who says the rest.
 3. Fix a wrong guess: it retrains in a moment, and its other guesses change with it.
 
-A short guide opens on your first visit. Your labels stay only in that visit, and adding episodes and exporting are turned off. The free server sleeps when nobody uses it, so the page may take about a minute to wake it.
+On your first visit, a short walk-through shows you around the screen and has you label a line. Your labels stay only in that visit, and adding episodes and exporting are turned off. The free server sleeps when nobody uses it, so the page may take about a minute to wake it.
 
 ## What it does
 
@@ -95,7 +95,7 @@ You only name the characters you want (the target characters). Everyone else is 
 | **Characters** | `O` | Everything the machine gave one character, least sure first. Fix the wrong ones, confirm the rest with `Shift+Enter`, then check the lines it may have missed. |
 | **Export** | `E` | Write the dataset. |
 
-Once a character has 10 confirmed lines and a few others are "Not a target", the machine starts guessing, and every label after that retrains it in a moment. `Z` undoes, `?` lists every key, and the Guide button explains the views. The full walk-through is [Your first dataset](docs/guide/first-dataset.md).
+Once a character has 10 confirmed lines and a few others are "Not a target", the machine starts guessing, and every label after that retrains it in a moment. `Z` undoes, `?` lists every key, and the Guide button runs the walk-through again. The full walk-through is [Your first dataset](docs/guide/first-dataset.md).
 
 ## What you get
 

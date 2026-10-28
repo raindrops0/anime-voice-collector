@@ -321,6 +321,7 @@ export function GroupsView({
                   key={g.key}
                   ref={measure}
                   data-key={g.key}
+                  data-tour={i === 0 ? "group" : undefined}
                   className="absolute top-0"
                   style={{
                     width: column,

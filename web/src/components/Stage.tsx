@@ -211,7 +211,7 @@ export function Stage({
   if (!clip) {
     return (
       <aside className={STAGE}>
-        <div className={SCREEN}>
+        <div className={SCREEN} data-tour="player">
           <div className={WAIT}>{tr("在右边选一句台词", "Pick a line on the right")}</div>
         </div>
       </aside>
@@ -247,7 +247,7 @@ export function Stage({
   const label = clip.label;
   return (
     <aside className={STAGE}>
-      <div className={SCREEN}>
+      <div className={SCREEN} data-tour="player">
         {fromCopy ? (
           <>
             {!hasVideo && (

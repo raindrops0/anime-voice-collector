@@ -62,7 +62,7 @@ export function Dock({
   return (
     <footer ref={ref} className="flex items-center gap-1.5 border-t bg-background px-3.5 py-2">
       {/* The chips wrap to a second row when there are many, so none scrolls away and Undo stays on screen. */}
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+      <div data-tour="dock" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
         {dock.map((name, i) => (
           <Chip
             key={name}
@@ -102,6 +102,7 @@ export function Dock({
           picture={<Avatar plus size="md" />}
           hotkey="N"
           flash={at(NEW_KEY)}
+          tour="new"
         >
           {tr("新目标", "New target")}
         </Chip>
@@ -150,6 +151,7 @@ export function Dock({
         </div>
         <Button
           ref={undoRef}
+          data-tour="undo"
           variant="ghost"
           size="sm"
           className="flex-none"

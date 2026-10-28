@@ -1220,12 +1220,16 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (crop || renaming) return;
-      if (help || addOpen || guide) {
+      if (help || addOpen) {
         if (e.key === "Escape") {
           setHelp(false);
           setAddOpen(false);
-          closeGuide();
         }
+        return;
+      }
+      /* The walk-through leaves every other key to the page, as it has the person use them. */
+      if (guide && e.key === "Escape") {
+        closeGuide();
         return;
       }
       if (typing(e.target) || (e.ctrlKey && e.key !== "z") || e.metaKey || e.altKey) return;
@@ -1335,7 +1339,7 @@ export function App() {
   /* Messages show above everything. At the bottom they would cover a dialog's buttons, so while one is open they
      move to the top of the window. Otherwise they sit just above the bottom bar, whose height changes when its
      chips wrap to a second row. */
-  const dialog = !!crop || renaming || help || guide || addOpen;
+  const dialog = !!crop || renaming || help || addOpen;
   const toaster = (
     <Toaster
       theme={theme === "dark" ? "dark" : "light"}
@@ -1491,7 +1495,10 @@ export function App() {
         {showStage && <Divider width={fitStage(stageWidth)} setWidth={setStageWidth} />}
         {/* The scrollbar's room is kept even when the list is short, so the width does not change when lines are
             ticked into view; it did, and boxes near the right edge jumped to the next line. */}
-        <main className="@container min-h-0 scroll-pt-20 [scrollbar-gutter:stable] overflow-y-auto px-5 pt-2 pb-10">
+        <main
+          data-tour="main"
+          className="@container min-h-0 scroll-pt-20 [scrollbar-gutter:stable] overflow-y-auto px-5 pt-2 pb-10"
+        >
           {view === "scene" && (
             <SceneView
               clips={clips}
@@ -1614,10 +1621,16 @@ export function App() {
       )}
       {guide && (
         <Guide
-          onClose={closeGuide}
-          onStart={() => {
+          progress={{
+            ticked: Object.values(picked).reduce((n, ids) => n + (ids?.size ?? 0), 0),
+            targets: state.roles.filter((r) => r.target).length,
+          }}
+          demo={!!state.demo}
+          hidden={dialog}
+          setView={setView}
+          onClose={(finished) => {
             closeGuide();
-            setView("groups");
+            if (finished) setView("groups");
           }}
         />
       )}
