@@ -1,5 +1,5 @@
-# The online demo, for a small container host such as Koyeb's free instance (512 MB, a tenth of a
-# CPU). make_deploy.py copies this file, the packed demo workspace and a built avoc wheel into one
+# The online demo, for a small container host such as Render's free web service (512 MB, a tenth
+# of a CPU). make_deploy.py copies this file, the packed demo workspace and a built avoc wheel into one
 # folder; see docs/CONTRIBUTING.md#online-demo.
 FROM python:3.12-slim
 
@@ -18,5 +18,5 @@ USER user
 ENV HOME=/home/user PORT=8000
 COPY --chown=user template/ /home/user/template/
 EXPOSE 8000
-# The port comes from PORT; set it to the port the host sends traffic to.
+# The port comes from PORT, which hosts such as Render set themselves.
 CMD ["python", "-m", "avoc.app.demo", "serve", "/home/user/template", "--host", "0.0.0.0"]
