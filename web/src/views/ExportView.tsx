@@ -260,17 +260,26 @@ export function ExportView({
           <SpokenTexts state={state} setState={setState} toast={toast} />
         </Section>
       )}
-      <Section title={tr("输出到", "Output folder")}>
-        <PathInput kind="folder" value={out} onChange={setOut} toast={toast} />
+      {state.demo ? (
         <Note>
           {tr(
-            "相对路径从启动 avoc 的目录算起。",
-            "A relative path starts from the folder you launched avoc in.",
+            "这是在线试用，不能导出文件。装到自己电脑上就能导出。",
+            "This is the online demo, so it does not export files. Install avoc on your computer to export.",
           )}
         </Note>
-      </Section>
+      ) : (
+        <Section title={tr("输出到", "Output folder")}>
+          <PathInput kind="folder" value={out} onChange={setOut} toast={toast} />
+          <Note>
+            {tr(
+              "相对路径从启动 avoc 的目录算起。",
+              "A relative path starts from the folder you launched avoc in.",
+            )}
+          </Note>
+        </Section>
+      )}
       <div className="flex gap-2">
-        <Button disabled={busy || picked.size === 0} onClick={run}>
+        <Button disabled={busy || picked.size === 0 || state.demo} onClick={run}>
           {busy
             ? tr("正在导出…", "Exporting…")
             : tr(`导出 ${picked.size} 个角色`, `Export ${many(picked.size, "character")}`)}

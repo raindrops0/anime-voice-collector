@@ -65,6 +65,10 @@ import { SceneView } from "./views/SceneView";
 import { Welcome } from "./views/Welcome";
 
 const VIEWS: View[] = ["groups", "scene", "roles", "export"];
+/* The credit the voices' terms ask for (scripts/demo/make_episodes.py). */
+const DEMO_VOICES = ["ずんだもん", "四国めたん", "九州そら", "中国うさぎ", "中部つるぎ"]
+  .map((name) => `VOICEVOX:${name}`)
+  .join(", ");
 /* A list request was overtaken by a later one. Its result is dropped; this is not an error. */
 const STALE = new Error("stale");
 /* The position saved after # in the address when the page opened; see where App writes it back. */
@@ -1392,7 +1396,7 @@ export function App() {
         todo={Object.fromEntries(state.episodes.map((e) => [e.name, e.work]))}
         episode={episode}
         setEpisode={setEpisode}
-        onAdd={() => setAddOpen(true)}
+        onAdd={state.demo ? undefined : () => setAddOpen(true)}
         unfinished={Object.keys(state.skipped || {}).length}
         view={view}
         setView={setView}
@@ -1408,6 +1412,27 @@ export function App() {
         onGuide={() => setGuide(true)}
         onHelp={() => setHelp(true)}
       />
+      {state.demo && (
+        <div className="border-b bg-muted px-[18px] py-1.5 text-[13px] text-muted-foreground">
+          {tr(
+            "在线试用：两集合成的日语短剧（声音：",
+            "Online demo: two short made-up Japanese episodes (voices: ",
+          )}
+          {DEMO_VOICES}
+          {tr(
+            "）。你的标注只保存在这次访问里，不能添加剧集或导出。",
+            "). Your labels stay only in this visit; adding episodes and exporting are off.",
+          )}{" "}
+          <a
+            className="underline underline-offset-2"
+            href="https://github.com/raindrops0/anime-voice-collector"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
+      )}
       {state.outdated !== false && (
         <div className="border-b bg-warning/15 px-[18px] py-2 text-[13px] text-warning">
           {withKeys(

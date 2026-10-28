@@ -276,6 +276,7 @@ class SummaryView(BaseModel):
     can_undo: bool
     outdated: bool
     purpose: Literal["tts", "audio"] | None
+    demo: bool = False
 
 
 class SkippedView(BaseModel):

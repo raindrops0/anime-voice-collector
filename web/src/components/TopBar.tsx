@@ -49,7 +49,8 @@ interface TopBarProps {
   todo: Record<string, number>;
   episode: string | null;
   setEpisode: (name: string) => void;
-  onAdd: () => void;
+  /* Left out in the online demo, which cannot add episodes. */
+  onAdd?: () => void;
   /* How many episodes were left unfinished, shown beside "Add an episode". */
   unfinished: number;
   view: View;
@@ -171,16 +172,20 @@ export function TopBar(p: TopBarProps) {
           {/* Focus goes nowhere after a pick, so the arrow keys meant for the next line don't open the menu again. */}
           <DropdownMenuContent finalFocus={false} className="w-auto min-w-40">
             {/* At the top, so it is in sight without scrolling past a long list of episodes. */}
-            <DropdownMenuItem onClick={p.onAdd}>
-              <PlusIcon />
-              {tr("加一集…", "Add an episode…")}
-              {p.unfinished > 0 && (
-                <span className="text-xs text-warning">
-                  {tr(`（${p.unfinished} 集没做完）`, `(${p.unfinished} unfinished)`)}
-                </span>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {p.onAdd && (
+              <>
+                <DropdownMenuItem onClick={p.onAdd}>
+                  <PlusIcon />
+                  {tr("加一集…", "Add an episode…")}
+                  {p.unfinished > 0 && (
+                    <span className="text-xs text-warning">
+                      {tr(`（${p.unfinished} 集没做完）`, `(${p.unfinished} unfinished)`)}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuRadioGroup value={p.episode} onValueChange={(v) => p.setEpisode(v)}>
               {p.episodes.map((name) => (
                 <DropdownMenuRadioItem key={name} value={name} closeOnClick>

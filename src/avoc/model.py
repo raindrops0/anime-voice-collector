@@ -152,8 +152,12 @@ def fit(
     """Fit a softmax regression with partial labels. `choices[i, c]` is True when row i may be
     choice c. Training lowers `-log(sum of the chances of the row's choices)`, summed over rows,
     plus `sum(W**2) / STRENGTH`. Computed with L-BFGS in 64-bit floats, on `device` ("cpu" or
-    "cuda"). Returns the weights and the offsets as NumPy arrays."""
-    import torch
+    "cuda"). Returns the weights and the offsets as NumPy arrays. Without torch installed (the
+    online demo, see avoc.app.demo) the same sum is lowered with SciPy on the CPU."""
+    try:
+        import torch
+    except ImportError:
+        return _fit_scipy(features, choices, start)
 
     x = torch.as_tensor(features, dtype=torch.float64, device=device)
     allowed = torch.as_tensor(choices, dtype=torch.bool, device=device)
@@ -184,6 +188,41 @@ def fit(
 
     solver.step(loss)
     return w.detach().cpu().numpy(), b.detach().cpu().numpy()
+
+
+def _fit_scipy(features: Any, choices: Any, start: tuple[Any, Any] | None) -> tuple[Any, Any]:
+    """`fit` in NumPy and SciPy, for a server without torch."""
+    import numpy as np
+    from scipy.optimize import minimize
+    from scipy.special import logsumexp
+
+    x = np.asarray(features, dtype=np.float64)
+    allowed = np.asarray(choices, dtype=bool)
+    width, count = x.shape[1], allowed.shape[1]
+    if start is None:
+        theta = np.zeros((width + 1) * count)
+    else:
+        theta = np.concatenate([np.asarray(start[0], np.float64).ravel(), start[1]])
+
+    def loss(theta: Any) -> tuple[float, Any]:
+        w, b = theta[: width * count].reshape(width, count), theta[width * count :]
+        scores = x @ w + b
+        whole = logsumexp(scores, axis=1)
+        masked = np.where(allowed, scores, -np.inf)
+        kept = logsumexp(masked, axis=1)
+        total = (whole - kept).sum() + (w * w).sum() / STRENGTH
+        # The gradient by the scores: all chances, less the chances among the allowed choices.
+        grad = np.exp(scores - whole[:, None]) - np.exp(masked - kept[:, None])
+        return total, np.concatenate([(x.T @ grad + 2 * w / STRENGTH).ravel(), grad.sum(0)])
+
+    found = minimize(
+        loss,
+        theta,
+        jac=True,
+        method="L-BFGS-B",
+        options={"maxiter": 2000, "gtol": 1e-9, "ftol": 1e-13},
+    )
+    return found.x[: width * count].reshape(width, count), found.x[width * count :]
 
 
 def train_and_predict(

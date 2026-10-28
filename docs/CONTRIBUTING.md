@@ -68,6 +68,17 @@ No pictures, GIFs or videos are committed, so `git clone` stays small. Upload th
 
 The demo GIF at the top of the README is recorded by a script, so it can be made again after the interface changes: [web/demo/demo.spec.ts](../web/demo/demo.spec.ts) says how.
 
+## Online demo
+
+The online demo runs in a small container: every visitor labels their own copy of two short made-up Japanese episodes; adding episodes and exporting are turned off. Only adding episodes needs a graphics card, so the server runs without torch on a tenth of a CPU and in about 150 MB of memory, which fits a free instance on [Koyeb](https://www.koyeb.com) (a host that runs containers). To make it again:
+
+1. Start the [VOICEVOX engine](https://github.com/VOICEVOX/voicevox_engine/releases) on port 50021, then run `uv run python scripts/demo/make_episodes.py data/demo-episodes`. It reads [scripts/demo/script.json](../scripts/demo/script.json) aloud, lays a little music under it, and writes a video and Japanese subtitles for each episode.
+2. Add both to a new workspace with `avoc add` (`--offset 0 --spoken ja`), then run `avoc quality` on it.
+3. Run `uv run python scripts/demo/make_deploy.py WORKSPACE OUT`. `OUT` gets the [Dockerfile and README](../scripts/demo/deploy/), the workspace packed as a template with every line's vocals cut and the low-quality hint's starter weights, and a wheel of avoc. Whatever can be made ahead is, so the server only does what a visitor's clicks need: right after it starts, it labels a throwaway copy once (the first training loads its libraries) and keeps one fresh copy ready for the next visitor. Try it with `uv run python -m avoc.app.demo serve OUT/template`.
+4. Push `OUT` to the git repository the host builds from. On Koyeb, the service builds that repository's Dockerfile and sends traffic to port 8000.
+
+The voices' terms ask for a credit, such as "VOICEVOX:ずんだもん". The page and the deploy README give it; keep it when changing either.
+
 ## README
 
 The README comes in English (`README.md`) and Simplified Chinese (`README.zh.md`). When you change one, change the other in the same commit. The same holds for the guide pages in `docs/guide/` and their `.zh.md` copies. The other docs are in English only.

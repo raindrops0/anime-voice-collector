@@ -122,6 +122,7 @@ export type Summary = {
   can_undo: boolean;
   outdated: boolean;
   purpose: "tts" | "audio" | null;
+  demo?: boolean;
 };
 
 export type WaitingView = {
