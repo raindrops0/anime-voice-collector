@@ -1,6 +1,6 @@
 [project]
 name = "anime-voice-collector"
-version = "0.1.0"
+version = "0.1.1"
 description = "Collect an anime character's lines: label a few, the model sorts the rest, export for voice training"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

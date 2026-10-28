@@ -68,4 +68,4 @@ uv run avoc doctor
 
 ## 没有 NVIDIA 显卡
 
-只有加入剧集需要显卡。[这个笔记本](https://colab.research.google.com/github/raindrops0/anime-voice-collector/blob/main/scripts/colab/add_episodes.ipynb)（英文）用 Google Colab 免费的显卡（T4）处理你 Google Drive 里一个文件夹中的剧集，第一格写了什么文件传到哪里。做完后把工作区文件夹下载下来，在这里用 `avoc app` 打开。只要视频和字幕在工作区里面，工作区就能搬到另一台电脑上用，笔记本就把它们放在 `input/` 里。笔记本运行的是 [add_all.py](../../scripts/colab/add_all.py)。
+只有加入剧集需要显卡。[这个笔记本](https://colab.research.google.com/github/raindrops0/anime-voice-collector/blob/main/scripts/colab/add_episodes.ipynb)（英文）用 Google Colab 免费的显卡（T4）处理你 Google Drive 里一个文件夹中的剧集，第一格写了什么文件传到哪里，以及 Google 请求访问你的 Drive 时要怎么允许（权限窗口里的选项要全部勾上）。做完后把工作区文件夹下载下来，在这里用 `avoc app` 打开。只要视频和字幕在工作区里面，工作区就能搬到另一台电脑上用，笔记本就把它们放在 `input/` 里。笔记本运行的是 [add_all.py](../../scripts/colab/add_all.py)。

@@ -3,14 +3,15 @@ import { XIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { tr } from "../language";
+import { currentLanguage, type Language, tr } from "../language";
 import { withKeys } from "./Keys";
 import type { View } from "./TopBar";
 
 /* ───────────── Walk-through ─────────────
    A few steps over the real screen: each one dims the page, lights up one part of it and says what it is for. Two
    steps wait for the person to do the thing (tick lines, make a target), so they label their first character on
-   the way. The page stays usable underneath, keys included. Opened by itself the first time a workspace with
+   the way. The first card asks for the page language before anything else. The page stays usable underneath, keys
+   included. Opened by itself the first time a workspace with
    episodes is opened and nothing is labeled yet; afterwards from the Guide button in the top bar or the shortcuts
    dialog. */
 export const GUIDE_SEEN = "guide-seen";
@@ -33,9 +34,17 @@ interface Step {
   done?: (now: GuideProgress, start: GuideProgress) => boolean;
   /* What to do to go on, shown while waiting. */
   todo?: string;
+  /* The card that asks for the page language: it goes on only through one of the language buttons. */
+  language?: boolean;
 }
 
 const steps = (demo: boolean): Step[] => [
+  {
+    /* In both languages, since the person may not read the one shown. */
+    title: "界面语言 / Language",
+    body: "先选界面的语言，之后随时可以在右上角切换。\nChoose the language of the page first; you can switch it at the top right at any time.",
+    language: true,
+  },
   {
     title: tr("带你走一遍", "A quick walk-through"),
     body: tr(
@@ -145,6 +154,9 @@ const steps = (demo: boolean): Step[] => [
 const PAD = 6;
 const GAP = 12;
 const CARD_WIDTH = 340;
+/* About the size of the "You are here" label under the marked tab. */
+const TAG_HEIGHT = 20;
+const TAG_WIDTH = 90;
 
 interface Box {
   left: number;
@@ -165,6 +177,46 @@ function find(target: string | undefined): Box | null {
   const right = Math.min(innerWidth, Math.max(...rects.map((r) => r.right)) + PAD);
   const bottom = Math.min(innerHeight, Math.max(...rects.map((r) => r.bottom)) + PAD);
   return { left, top, width: right - left, height: bottom - top };
+}
+
+/* The outline of the whole window with a rounded hole over each box. Filled even-odd, so only the holes are
+   left out. Two holes must not overlap, or the overlap is dimmed again. */
+function dimmed(holes: Box[]): string {
+  const r = 8;
+  const hole = ({ left: x, top: y, width: w, height: h }: Box) =>
+    `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}` +
+    `A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}` +
+    `V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`;
+  return `M0 0H${innerWidth}V${innerHeight}H0Z` + holes.map(hole).join("");
+}
+
+/* Where the parts with this name are, looked up on every frame: lists scroll, cards are laid out after they load,
+   and the bottom bar grows a chip when a target is made. */
+function useLit(target: string | undefined): Box | null {
+  const [lit, setLit] = useState<Box | null>(null);
+  useEffect(() => {
+    let frame = 0;
+    const look = () => {
+      const box = find(target);
+      setLit((old) =>
+        !box || !old
+          ? box === old
+            ? old
+            : box
+          : Math.abs(box.left - old.left) +
+                Math.abs(box.top - old.top) +
+                Math.abs(box.width - old.width) +
+                Math.abs(box.height - old.height) <
+              1
+            ? old
+            : box,
+      );
+      frame = requestAnimationFrame(look);
+    };
+    look();
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
+  return lit;
 }
 
 /* The card goes below the lit part, or above, right or left, wherever it fits first; in the middle when nothing
@@ -192,6 +244,7 @@ export function Guide({
   demo,
   hidden,
   setView,
+  onLanguage,
   onClose,
 }: {
   progress: GuideProgress;
@@ -199,6 +252,7 @@ export function Guide({
   /* Another dialog is open, such as naming the new target: the walk-through steps aside until it closes. */
   hidden: boolean;
   setView: (view: View) => void;
+  onLanguage: (language: Language) => void;
   /* `finished`: the last step was reached and closed with its button. */
   onClose: (finished: boolean) => void;
 }) {
@@ -227,31 +281,18 @@ export function Guide({
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- when the step is done
   }, [done, at]);
 
-  /* The lit part is looked up on every frame: lists scroll, cards are laid out after they load, and the bottom bar
-     grows a chip when a target is made. */
-  const [lit, setLit] = useState<Box | null>(null);
-  useEffect(() => {
-    let frame = 0;
-    const look = () => {
-      const box = find(step.target);
-      setLit((old) =>
-        !box || !old
-          ? box === old
-            ? old
-            : box
-          : Math.abs(box.left - old.left) +
-                Math.abs(box.top - old.top) +
-                Math.abs(box.width - old.width) +
-                Math.abs(box.height - old.height) <
-              1
-            ? old
-            : box,
-      );
-      frame = requestAnimationFrame(look);
-    };
-    look();
-    return () => cancelAnimationFrame(frame);
-  }, [step.target]);
+  const lit = useLit(step.target);
+  /* The tab of the view open now, lit too and marked, so the person always sees which view they are on. */
+  const page = step.language ? undefined : all.slice(0, at + 1).findLast((s) => s.view)?.view;
+  const tab = useLit(page && `view-${page}`);
+  /* The tab gets its own hole only when the lit part does not already hold it, as the view tabs do. */
+  const inside = (a: Box, b: Box) =>
+    a.left >= b.left &&
+    a.top >= b.top &&
+    a.left + a.width <= b.left + b.width &&
+    a.top + a.height <= b.top + b.height;
+  const holes = [lit, tab && lit && inside(tab, lit) ? null : tab].filter((b): b is Box => !!b);
+  const rings = [lit, tab].filter((b): b is Box => !!b);
 
   /* The card's height, which changes with each step's text, decides whether it fits above or below. */
   const [cardHeight, setCardHeight] = useState(200);
@@ -261,44 +302,57 @@ export function Guide({
     watch.observe(node);
     return () => watch.disconnect();
   }, []);
-  const spot = place(lit, cardHeight);
+  const cardWidth = Math.min(CARD_WIDTH, innerWidth - 2 * GAP);
+  const placed = place(lit, cardHeight);
+  /* The card must not cover the marked tab or its label: if it would, it moves down below them. */
+  const tabBottom = tab ? tab.top + tab.height + 4 + TAG_HEIGHT : 0;
+  const covers =
+    tab &&
+    placed.top < tabBottom &&
+    placed.left < tab.left + Math.max(tab.width, TAG_WIDTH) &&
+    placed.left + cardWidth > tab.left;
+  const spot = covers
+    ? { ...placed, top: Math.min(tabBottom + GAP, innerHeight - cardHeight - GAP) }
+    : placed;
 
   if (hidden) return null;
   return createPortal(
     /* Nothing here catches the mouse but the card, so the lit part, and the rest of the page, can be used. */
     <div className="pointer-events-none fixed inset-0 z-50">
-      <div
-        className="absolute rounded-lg transition-all duration-300"
-        style={
-          lit
-            ? { ...lit, boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.45)" }
-            : {
-                left: "50%",
-                top: "50%",
-                width: 0,
-                height: 0,
-                boxShadow: "0 0 0 9999px rgb(0 0 0 / 0.45)",
-              }
-        }
-      />
-      {lit && (
+      {/* The page dimmed, with a hole over each lit part. */}
+      <svg className="absolute inset-0 size-full" aria-hidden="true">
+        <path d={dimmed(holes)} fill="black" fillOpacity={0.45} fillRule="evenodd" />
+      </svg>
+      {rings.map((b, i) => (
         <div
+          key={i}
           className="absolute rounded-lg ring-2 ring-primary transition-all duration-300"
-          style={lit}
+          style={b}
         />
+      ))}
+      {tab && (
+        <div
+          className="absolute rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-primary-foreground shadow-sm transition-all duration-300"
+          style={{ left: tab.left, top: tab.top + tab.height + 4 }}
+        >
+          {tr("当前页面", "You are here")}
+        </div>
       )}
       <div
         ref={card}
         role="dialog"
         aria-label={step.title}
         className="pointer-events-auto absolute flex flex-col gap-2 rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg transition-[left,top] duration-300"
-        style={{ ...spot, width: Math.min(CARD_WIDTH, innerWidth - 2 * GAP) }}
+        style={{ ...spot, width: cardWidth }}
       >
         <div className="flex items-center gap-2">
           <b className="font-semibold">{step.title}</b>
-          <span className="text-xs text-muted-foreground">
-            {at + 1} / {all.length}
-          </span>
+          {/* The language card is not counted: the steps are numbered from the one after it. */}
+          {at > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {at} / {all.length - 1}
+            </span>
+          )}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -309,7 +363,7 @@ export function Guide({
             <XIcon />
           </Button>
         </div>
-        <div className="text-[13px] leading-relaxed">{step.body}</div>
+        <div className="text-[13px] leading-relaxed whitespace-pre-line">{step.body}</div>
         {step.todo && (
           <div className={cn("text-xs", done ? "text-success" : "text-primary")}>
             {done ? tr("做到了 ✓", "Done ✓") : step.todo}
@@ -322,13 +376,27 @@ export function Guide({
             </Button>
           )}
           <span className="flex-1" />
-          {last ? (
+          {step.language ? (
+            (["zh", "en"] as const).map((language) => (
+              <Button
+                key={language}
+                size="sm"
+                variant={language === currentLanguage() ? "default" : "outline"}
+                onClick={() => {
+                  onLanguage(language);
+                  go(at + 1);
+                }}
+              >
+                {language === "zh" ? "中文" : "English"}
+              </Button>
+            ))
+          ) : last ? (
             <Button size="sm" onClick={() => onClose(true)}>
               {tr("开始标注", "Start labeling")}
             </Button>
           ) : done ? (
             <Button size="sm" onClick={() => go(at + 1)}>
-              {at === 0 ? tr("开始", "Start") : tr("下一步", "Next")}
+              {at === 1 ? tr("开始", "Start") : tr("下一步", "Next")}
             </Button>
           ) : (
             <Button variant="ghost" size="sm" onClick={() => go(at + 1)}>

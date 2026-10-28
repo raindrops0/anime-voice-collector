@@ -118,6 +118,7 @@ export function TopBar(p: TopBarProps) {
       >
         <button
           type="button"
+          data-tour={`view-${v}`}
           aria-pressed={p.view === v}
           onClick={() => p.setView(v)}
           className={cn(
