@@ -347,6 +347,13 @@ export function EpisodePlayer({
           if (typeof v.requestVideoFrameCallback === "function")
             v.requestVideoFrameCallback((_, frame) => reveal(frame.mediaTime));
           else reveal(v.currentTime);
+          /* Chrome reports no frame for the first seek after the file loads, and on a page just loaded the sound
+             may not start until the page is clicked, so nothing plays either: the picture stayed black. By now the
+             new frame is drawn anyway. */
+          window.setTimeout(() => {
+            if (!v.seeking && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)
+              reveal(v.currentTime);
+          }, 250);
           tryStart();
         }}
       ></video>
