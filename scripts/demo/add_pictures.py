@@ -2,7 +2,8 @@
 
 Each picture is shown from the start of its line until the next picture's line starts; the first
 one from the start of the episode. The sound is copied unchanged, so the episodes need no new
-VOICEVOX run. Pictures are 3:2 and cut to 16:9 around their middle. Run from the repository root:
+VOICEVOX run. Pictures are 3:2 and cut to 16:9 around their middle. An episode with no folder of
+pictures keeps its waveform; the demo has pictures for ep01 only. Run from the repository root:
 
     uv run python scripts/demo/add_pictures.py data/demo-episodes data/demo-pictures
 """
@@ -72,6 +73,9 @@ def main() -> None:
     episodes, pictures = Path(sys.argv[1]), Path(sys.argv[2])
     plan = json.loads((HERE / "pictures.json").read_text(encoding="utf-8"))
     for name, shots in plan["episodes"].items():
+        if not (pictures / name).is_dir():
+            print(f"{name}: no pictures folder, so it keeps the waveform")
+            continue
         episode(name, shots, episodes, pictures)
 
 

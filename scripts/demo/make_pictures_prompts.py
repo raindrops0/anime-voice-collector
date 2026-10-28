@@ -1,10 +1,11 @@
 """Write the prompts for the demo's pictures (pictures.json) as one Markdown file to paste from.
 
 The file starts with a message to send once, with the five official illustrations attached, then
-has one prompt per picture, each complete on its own so a long chat does not drift. Run from the
-repository root:
+has one prompt per picture, each complete on its own so a long chat does not drift. Names after the
+file pick episodes; none means all. The demo has pictures for ep01 only. Run from the repository
+root:
 
-    uv run python scripts/demo/make_pictures_prompts.py data/demo-pictures/PROMPTS.md
+    uv run python scripts/demo/make_pictures_prompts.py data/demo-pictures/PROMPTS.md ep01
 """
 
 from __future__ import annotations
@@ -37,7 +38,10 @@ def main() -> None:
         f"Picture size: {pictures['size']}. Reply only with the picture each time.\n"
         "```\n",
     ]
+    wanted = sys.argv[2:] or list(pictures["episodes"])
     for episode, shots in pictures["episodes"].items():
+        if episode not in wanted:
+            continue
         lines = script["episodes"][episode]
         parts.append(f"## {episode}\n")
         for number, (shot, (voice, style, text)) in enumerate(zip(shots, lines, strict=True), 1):
