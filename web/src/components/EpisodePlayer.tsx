@@ -100,10 +100,10 @@ export function EpisodePlayer({
     return !n.muteOutside || (t >= n.heardFrom - EARLY && t < n.heardTo - EARLY);
   };
   /* Show the picture once the frame on screen, at episode time `t`, is inside the line. The frame shown at the
-     line's start may begin up to a frame earlier. */
+     line's start begins up to a frame earlier, but no more: the one before it belongs to what came before. */
   const reveal = (t: number) => {
     const n = now.current;
-    if (n.placedAt !== n.place && t >= n.from - 2 * FRAME && t <= n.to) setPlacedAt(n.place);
+    if (n.placedAt !== n.place && t > n.from - 1.25 * FRAME && t <= n.to) setPlacedAt(n.place);
   };
 
   /* Move both players to the line's start if they are not there yet, and start the sound once both can play; the

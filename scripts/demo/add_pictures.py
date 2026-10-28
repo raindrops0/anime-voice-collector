@@ -11,12 +11,14 @@ pictures keeps its waveform; the demo has pictures for ep01 only. Run from the r
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).parent
+FPS = 24
 
 
 def starts(srt: Path) -> list[float]:
@@ -41,7 +43,13 @@ def episode(name: str, shots: list, episodes: Path, pictures: Path) -> None:
     times = starts(episodes / f"{name}.ja.srt")
     if len(times) != len(shots):
         raise SystemExit(f"{name}: {len(times)} subtitles but {len(shots)} lines in pictures.json")
-    shown = [(times[i], pictures / name / f"{i + 1:02d}.png") for i, s in enumerate(shots) if s]
+    # Each picture starts with the frame that holds its line's start, so the frame shown when the
+    # player jumps to the line is already the line's picture, not the one before.
+    shown = [
+        (math.floor(times[i] * FPS) / FPS, pictures / name / f"{i + 1:02d}.png")
+        for i, s in enumerate(shots)
+        if s
+    ]
     missing = [str(path) for _, path in shown if not path.is_file()]
     if missing:
         raise SystemExit(f"{name}: missing pictures: {', '.join(missing)}")
@@ -60,7 +68,7 @@ def episode(name: str, shots: list, episodes: Path, pictures: Path) -> None:
         subprocess.run(
             ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
              "-i", str(listing), "-i", str(video),
-             "-vf", "scale=1280:-2,crop=1280:720,fps=24,format=yuv420p",
+             "-vf", f"scale=1280:-2,crop=1280:720,fps={FPS},format=yuv420p",
              "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "23", "-c:a", "copy",
              "-metadata:s:a:0", "language=jpn", "-shortest", str(made)],
             check=True,
