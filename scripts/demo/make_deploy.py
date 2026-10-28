@@ -32,6 +32,8 @@ def main() -> None:
         raise SystemExit("could not download the low-quality hint's starter weights")
     shutil.copy2(starter, out / "template" / STARTER)
     subprocess.run(["uv", "build", "--wheel", "--out-dir", str(out / "wheels")], check=True)
+    # uv leaves a .gitignore of "*" there, which would keep the wheel out of the git repository.
+    (out / "wheels" / ".gitignore").unlink(missing_ok=True)
     print(f"Deploy folder written to {out}")
 
 
