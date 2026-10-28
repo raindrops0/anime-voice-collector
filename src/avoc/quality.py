@@ -11,8 +11,9 @@ number are kept: 6144 numbers per clip. They are computed once per episode and c
 characters scored 0.914 ranking accuracy, one model per character only 0.815
 (`out/quality-probe/FINDINGS.md`).
 
-**Starter weights.** A model trained on other anime (Teio from Uma Musume, the first usagi labels)
-is downloaded once. On its own it scored 0.909 on usagi with no usagi labels. With labels, the
+**Starter weights.** A model trained on other anime (Teio from Uma Musume, 1,245 usagi labels of
+three seasons) is downloaded once. Teio's model alone scored 0.909 on usagi with no usagi labels;
+the version history and scores are on the Hugging Face page (`STARTER_REPO`). With labels, the
 weights are trained starting from it and held back toward it (instead of toward zero), so the hint
 works from the first label and fits the anime more as labels grow. Without the starter, the hint
 waits for `MIN_EACH` clean and low clips.
@@ -47,8 +48,8 @@ SET_ASIDE = 0.9
 as for `HINT`: 75% of the low clips caught, 4% of the clean ones wrongly flagged."""
 
 STARTER_REPO = "RainbowZL/avoc-quality-starter"
-STARTER_FILE = "quality-starter-v1.npz"
-STARTER_SHA256 = "3727ed71ffb1ca90141af2ae2f566d8bb443438340226c606885fc67b987f114"
+STARTER_FILE = "quality-starter-v2.npz"
+STARTER_SHA256 = "032cbd41ebf2cb3e568ce0875d609155ac39e7c9d4ec3e8a3d83834b5b063df6"
 """Where the starter weights are downloaded from (Hugging Face), and the file's SHA-256. A new
 version gets a new file name, so a cached old file is never taken for it."""
 

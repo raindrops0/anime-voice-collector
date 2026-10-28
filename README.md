@@ -41,6 +41,7 @@ Here you label a few lines while watching the scene. A small model learns your c
 - 🎬 **One clip per subtitle line,** so no line is lost to a speech detector.
 - 🎤 **Voice only:** music and sound effects are removed from every clip.
 - 🧠 **Learns from your corrections.** Name the characters you want; everyone else is "Not a target".
+- 🔇 **Spots noisy lines.** Lines with loud background sound or two people at once get a "maybe low quality" hint, which works from your first label and learns from yours ([how](docs/features/labeling.md#the-maybe-low-quality-hint)).
 - 📺 **Label while watching.** The video plays with each line, with more context one key away.
 - ⌨️ **Keyboard first,** and every step can be undone, even an earlier one alone, from the history.
 - 🈶 **The words actually said.** The exported text is in the language spoken, even if you read a translation while labeling.
