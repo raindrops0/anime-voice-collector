@@ -139,8 +139,9 @@ export function GroupsView({
 
   /* The cards' measured heights, by group key. A card that gets shorter (all its lines labeled, so its choices go)
      keeps its old height here, so the cards below it don't jump to another column while the person works. The
-     heights belong to one set of groups at one column width, and start again when either changes. */
-  const shape = `${lanes}|${groups.map((g) => g.clips[0]?.id).join()}`;
+     heights belong to one set of groups at one column width, and start again when either changes: a wider page
+     makes the cards shorter, and kept heights would leave gaps between them. */
+  const shape = `${Math.round(column)}|${groups.map((g) => g.clips[0]?.id).join()}`;
   const [measured, setMeasured] = useState<{ shape: string; sizes: Record<number, number> }>({
     shape: "",
     sizes: {},
