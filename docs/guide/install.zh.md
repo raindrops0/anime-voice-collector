@@ -4,7 +4,7 @@
 
 这一页让程序在你的电脑上跑起来。下一步：[做出第一份数据集](first-dataset.zh.md)。
 
-需要 Windows。强烈建议有 NVIDIA 显卡；没有的话，分离一集的人声要慢很多。Linux 和 macOS 还没有测试过（[平台](../ROADMAP.md#platforms)，英文）。
+需要 Windows。强烈建议有 NVIDIA 显卡；没有的话，分离一集的人声可能要几个小时。只有加入剧集需要显卡：可以[在免费的云端显卡上加](#没有-nvidia-显卡)，再在自己的电脑上标注。Linux 和 macOS 还没有测试过（[平台](../ROADMAP.md#platforms)，英文）。
 
 ## Windows 下载包（最简单）
 
@@ -65,3 +65,7 @@ uv run avoc doctor
 3. 运行 `uv run hf auth login`，把令牌粘贴进去。
 
 缺少令牌时，添加表单会显示这些步骤。没有令牌也可以自己填偏移。运行要求和模型来源见 [TOOLS.md](../TOOLS.md)（英文）。
+
+## 没有 NVIDIA 显卡
+
+只有加入剧集需要显卡。[这个笔记本](https://colab.research.google.com/github/raindrops0/anime-voice-collector/blob/main/scripts/colab/add_episodes.ipynb)（英文）用 Google Colab 免费的显卡（T4）处理你 Google Drive 里一个文件夹中的剧集，第一格写了什么文件传到哪里。做完后把工作区文件夹下载下来，在这里用 `avoc app` 打开。只要视频和字幕在工作区里面，工作区就能搬到另一台电脑上用，笔记本就把它们放在 `input/` 里。笔记本运行的是 [add_all.py](../../scripts/colab/add_all.py)。

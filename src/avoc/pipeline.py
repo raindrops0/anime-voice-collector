@@ -19,8 +19,10 @@ from avoc.project import (
     cache_dir,
     cache_signature,
     load_episode,
+    read_episode,
     read_json,
     resolve_device,
+    save_episode,
     segment_rows,
     time_key,
     validate_name,
@@ -308,7 +310,7 @@ def prepare(
         "spoken_from": how,
     }
     write_json(out / "segments.json", rows)
-    write_json(out / "episode.json", episode)
+    save_episode(out, episode)
     return {
         "episode": name,
         "segments": len(rows),
@@ -374,7 +376,7 @@ def attach_video(directory: Path, video: Path) -> dict[str, Any]:
             f"The video is {seconds:.2f} seconds and the audio is {audio:.2f} seconds. "
             "The difference is too large, so they are probably not the same source"
         )
-    write_json(directory / "episode.json", {**episode, "video": str(video.resolve())})
+    save_episode(directory, {**episode, "video": str(video.resolve())})
     return {
         "episode": episode["name"],
         "video_seconds": round(seconds, 2),
@@ -421,8 +423,8 @@ def attach_subtitles(directory: Path, subtitles: Path) -> dict[str, Any]:
             f"Only {matched:.0%} of clips can find dialogue, "
             "so this is probably not the subtitle for this episode"
         )
-    write_json(
-        directory / "episode.json",
+    save_episode(
+        directory,
         {
             **episode,
             "subtitles": str(subtitles.resolve()),
@@ -484,7 +486,7 @@ def attach_display_subtitles(directory: Path, subtitles: Path) -> dict[str, Any]
         "display_subtitle_offsets": [list(p) for p in parts] if len(parts) > 1 else None,
         "display_subtitle_agreement": agreement,
     }
-    write_json(directory / "episode.json", {**episode, **result})
+    save_episode(directory, {**episode, **result})
     return {"episode": episode["name"], **result}
 
 
@@ -526,9 +528,7 @@ def set_spoken_language(directory: Path, code: str) -> dict[str, Any]:
     already cut; to cut from another audio track, add the episode again with `--spoken`."""
     episode, _ = load_episode(directory)
     check_language(code)
-    write_json(
-        directory / "episode.json", {**episode, "spoken_language": code, "spoken_from": "person"}
-    )
+    save_episode(directory, {**episode, "spoken_language": code, "spoken_from": "person"})
     return {"episode": episode["name"], "spoken_language": code}
 
 
@@ -547,7 +547,7 @@ def find_episode_by_video(workspace: Path, video: Path) -> str | None:
 
     wanted = str(video.resolve())
     for directory in episode_dirs(workspace):
-        episode = read_json(directory / "episode.json")
+        episode = read_episode(directory)
         if episode.get("video") == wanted:
             return str(episode["name"])
     return None
@@ -743,7 +743,7 @@ def add_episode(
         report(say("计算质量特征（WavLM）", "Computing quality features (WavLM)"))
         quality.compute(out, device)
 
-    if note := missing_text_note(read_json(out / "episode.json")):
+    if note := missing_text_note(read_episode(out)):
         report(note)
 
     _, rows = load_episode(out)

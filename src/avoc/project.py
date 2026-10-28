@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import time
 from pathlib import Path
@@ -100,8 +101,37 @@ def segment_rows(episode: str, spans: list[dict[str, Any]]) -> list[dict[str, An
     return rows
 
 
-def load_episode(directory: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+EPISODE_PATHS = ("source", "video", "vocals", "analysis", "subtitles", "display_subtitles")
+"""The keys in `episode.json` that name a file. A file inside the workspace is written relative to
+the episode's folder, so the workspace still works after being moved to another computer, such as
+after adding episodes on a cloud GPU (scripts/colab/). Other files are written as full paths."""
+
+
+def read_episode(directory: Path) -> dict[str, Any]:
+    """`episode.json`, with every file path made a full path again."""
     episode = read_json(directory / "episode.json")
+    here = directory.resolve()
+    for key in EPISODE_PATHS:
+        if episode.get(key):
+            # Not resolve(): that would follow the links the online demo makes (app/demo.py).
+            episode[key] = os.path.normpath(here / episode[key])
+    return episode
+
+
+def save_episode(directory: Path, episode: dict[str, Any]) -> None:
+    here = directory.resolve()
+    workspace = here.parent.parent
+    saved = dict(episode)
+    for key in EPISODE_PATHS:
+        if saved.get(key):
+            path = Path(os.path.normpath(here / saved[key]))
+            inside = path.is_relative_to(workspace)
+            saved[key] = Path(os.path.relpath(path, here)).as_posix() if inside else str(path)
+    write_json(directory / "episode.json", saved)
+
+
+def load_episode(directory: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    episode = read_episode(directory)
     if episode.get("schema") != "episode.v1":
         raise ValueError(f"Not a current episode directory: {directory}")
     validate_name(episode["name"])

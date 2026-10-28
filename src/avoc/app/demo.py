@@ -30,8 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PATH_KEYS = ("source", "video", "vocals", "analysis", "subtitles", "display_subtitles")
-"""The keys in `episode.json` that name a file."""
+from avoc.project import EPISODE_PATHS, read_episode
+
 INPUT_FOLDER = "input"
 """Where `pack` puts the files an episode was made from that lay outside its folder."""
 COOKIE = "avoc_demo"
@@ -64,9 +64,9 @@ def pack(workspace: Path, template: Path) -> None:
         meta_path = folder / "episode.json"
         if not meta_path.is_file():
             continue
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta = read_episode(workspace / "episodes" / folder.name)
         old_root = (workspace / "episodes" / folder.name).resolve()
-        for key in PATH_KEYS:
+        for key in EPISODE_PATHS:
             if not meta.get(key):
                 continue
             path = Path(meta[key]).resolve()
@@ -118,7 +118,7 @@ def make_copy(template: Path, root: Path) -> None:
         if not meta_path.is_file():
             continue
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        for key in PATH_KEYS:
+        for key in EPISODE_PATHS:
             if meta.get(key):
                 meta[key] = str(folder.resolve() / meta[key])
         if meta.pop("demo_copy_ready", False):

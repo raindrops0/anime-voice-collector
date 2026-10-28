@@ -15,7 +15,14 @@ from typer.testing import CliRunner
 
 from avoc import pipeline
 from avoc.cli import app
-from avoc.project import cache_signature, read_json, segment_rows, write_json
+from avoc.project import (
+    cache_signature,
+    read_episode,
+    read_json,
+    save_episode,
+    segment_rows,
+    write_json,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -123,7 +130,29 @@ def test_prepare_uses_subtitle_boundaries_keeps_short_lines(
     assert [(r["start"], r["end"]) for r in rows] == [(0.5, 2.5), (3.5, 4.0)]
     assert [(r["line_start"], r["line_end"]) for r in rows] == [(0.5, 2.5), (3.5, 4.0)]
     assert not (out / "quality.json").exists()
-    assert read_json(out / "episode.json")["video"] == str(video.resolve())
+    assert read_episode(out)["video"] == str(video.resolve())
+
+
+def test_a_workspace_still_finds_its_files_after_being_moved(tmp_path: Path) -> None:
+    import shutil
+
+    before, after = tmp_path / "cloud" / "work", tmp_path / "home" / "work"
+    folder = before / "episodes" / "ep01"
+    folder.mkdir(parents=True)
+    video = before / "input" / "ep01.mkv"
+    outside = tmp_path / "ep01.ja.srt"
+    meta = {"name": "ep01", "video": str(video), "vocals": str(folder / "vocals.flac")}
+    save_episode(folder, {**meta, "subtitles": str(outside)})
+    saved = read_json(folder / "episode.json")
+    assert saved["video"] == "../../input/ep01.mkv"
+    assert saved["vocals"] == "vocals.flac"
+    assert saved["subtitles"] == str(outside)
+    after.parent.mkdir()
+    shutil.move(before, after)
+    moved = read_episode(after / "episodes" / "ep01")
+    assert moved["video"] == str((after / "input" / "ep01.mkv").resolve())
+    assert moved["vocals"] == str((after / "episodes" / "ep01" / "vocals.flac").resolve())
+    assert moved["subtitles"] == str(outside)
 
 
 def test_prepare_tightens_a_line_to_its_voice_and_keeps_its_id(

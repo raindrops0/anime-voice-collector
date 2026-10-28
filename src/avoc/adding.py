@@ -659,11 +659,11 @@ class Adding:
     def carry_on(self, name: str) -> dict[str, Any]:
         """Start an unfinished episode again with the files it was started with: from the record,
         or, for an episode added before there was one, from its episode.json."""
-        from avoc.project import read_json, validate_name
+        from avoc.project import read_episode, validate_name
 
         validate_name(name)
         record = self._records().get(name)
-        meta = read_json(self._folder(name) / "episode.json") if self._cut(name) else None
+        meta = read_episode(self._folder(name)) if self._cut(name) else None
         if record is None and meta is None:
             raise ValueError(
                 say(
