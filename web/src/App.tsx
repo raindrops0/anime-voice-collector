@@ -1631,6 +1631,7 @@ export function App() {
           demo={!!state.demo}
           hidden={dialog}
           setView={setView}
+          onLanguage={pickLanguage}
           onClose={(finished) => {
             closeGuide();
             if (finished) setView("groups");
