@@ -114,7 +114,7 @@ const steps = (demo: boolean): Step[] => [
     view: "roles",
     body: withKeys(
       tr(
-        "机器分给一个角色的全部台词，包括全部集数，最没把握的排在前面。改掉错的，剩下的按 [Shift]+[Enter] 一起确认；下面还有它可能漏掉的台词。",
+        "机器分给一个角色的全部台词，包括全部集数，最不自信的排在前面。改掉错的，剩下的按 [Shift]+[Enter] 一起确认；下面还有它可能漏掉的台词。",
         "Everything the machine gave one character, from all episodes, least sure first. Fix the wrong ones and confirm the rest with [Shift]+[Enter]; below are the lines it may have missed.",
       ),
     ),

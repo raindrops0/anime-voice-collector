@@ -205,18 +205,18 @@ export function ExportView({
           value={includeAuto ? "auto" : "confirmed"}
           options={[
             ["confirmed", tr("只要人确认过的", "Only confirmed by you")],
-            ["auto", tr("再加上机器有把握的", "Plus the machine's confident ones")],
+            ["auto", tr("再加上机器很自信的", "Plus the machine's confident ones")],
           ]}
           onPick={(v) => setIncludeAuto(v === "auto")}
         />
         <Note>
           {includeAuto
             ? tr(
-                `机器有把握指把握不低于 ${pct(state.model.auto_confidence)}，第 3 集上这一档约 97% 判对。训练数据里混进别人的声音，模型就会学歪。`,
+                `机器很自信指自信程度不低于 ${pct(state.model.auto_confidence)}，第 3 集上这一档约 97% 判对。训练数据里混进别人的声音，模型就会学歪。`,
                 `Confident means at least ${pct(state.model.auto_confidence)} sure; on episode 3 about 97% of these were right. Other people's voices in the training data make the voice model learn the wrong thing.`,
               )
             : tr(
-                "最干净。数据不够时再考虑加上机器有把握的。",
+                "最干净。数据不够时再考虑加上机器很自信的。",
                 "The cleanest. Add the machine's confident ones only if you don't have enough.",
               )}
         </Note>

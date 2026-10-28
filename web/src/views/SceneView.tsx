@@ -148,7 +148,7 @@ export function SceneView({
       after: [
         one(
           "auto",
-          tr("有把握", "Confident"),
+          tr("很自信", "Confident"),
           tr(
             "不用逐句听；去「角色」视图按人核对",
             "No need to listen one by one; check them per character in the Characters view",
@@ -168,7 +168,7 @@ export function SceneView({
       label: tr("忽略的", "Ignored"),
       count: SKIP_PARTS.reduce((n, p) => n + count[p], 0),
       tip: tr(
-        "不算要处理的，也不会被当成机器有把握的导出",
+        "不算要处理的，也不会被当成机器很自信的导出",
         "Not work to do, and not exported as confident guesses",
       ),
       children: [

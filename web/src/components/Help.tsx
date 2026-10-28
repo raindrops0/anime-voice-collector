@@ -92,7 +92,7 @@ export function Help({ onClose, onGuide }: { onClose: () => void; onGuide: () =>
     ],
     [
       tr("角色视图里 [P]", "[P] in Characters"),
-      tr("从最没把握的开始连着播", "Play one after another, least sure first"),
+      tr("从最不自信的开始连着播", "Play one after another, least sure first"),
     ],
     [
       "[G] / [S] / [O] / [E]",

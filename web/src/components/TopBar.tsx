@@ -92,7 +92,7 @@ export function TopBar(p: TopBarProps) {
   const workHint =
     p.work > 0
       ? tr(
-          `。${p.episode} 还有 ${p.work} 句要你处理：机器没把握，或还没有猜测。「只看要处理的」列的就是这些`,
+          `。${p.episode} 还有 ${p.work} 句要你处理：机器不自信，或还没有猜测。「只看要处理的」列的就是这些`,
           `. ${lines(p.work)} in ${p.episode} still to do: the machine isn't sure, or has no guess yet. "Only to do" lists them`,
         )
       : "";

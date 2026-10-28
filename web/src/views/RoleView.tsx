@@ -205,13 +205,13 @@ export function RoleView({
       children: [
         {
           keys: ["review"],
-          label: tr("没把握", "Not confident"),
+          label: tr("不自信", "Not confident"),
           count: allPending.filter((c) => c.status !== "auto").length,
           look: "review",
         },
         {
           keys: ["auto"],
-          label: tr("有把握", "Confident"),
+          label: tr("很自信", "Confident"),
           count: allPending.filter((c) => c.status === "auto").length,
           look: "auto",
         },
@@ -243,7 +243,7 @@ export function RoleView({
       label: tr("忽略的", "Ignored"),
       count: allSkipped.length,
       tip: tr(
-        "机器归给这个角色、但被忽略的台词：不算要处理的，也不会被当成机器有把握的导出",
+        "机器归给这个角色、但被忽略的台词：不算要处理的，也不会被当成机器很自信的导出",
         "Lines the machine gave this character but that are ignored: not work to do, and not exported as confident guesses",
       ),
       children: [
@@ -523,7 +523,7 @@ export function RoleView({
                   >
                     <span className="min-w-0 flex-[1_1_14rem] text-[13px]">
                       {tr(
-                        `要处理的：机器归给了${other ? "「不是目标」" : ` ${role}`}，最没把握的在前`,
+                        `要处理的：机器归给了${other ? "「不是目标」" : ` ${role}`}，最不自信的在前`,
                         `To do: the machine gave these to ${them}, least sure first`,
                       )}
                     </span>

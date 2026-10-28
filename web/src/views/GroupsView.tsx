@@ -229,7 +229,7 @@ export function GroupsView({
         <EpisodeProgress progress={progress} />
         <Tip
           text={tr(
-            "只给要处理的台词分组，跟「场景」里「只看要处理的」是同一批。机器有把握的在「角色」里核对",
+            "只给要处理的台词分组，跟「场景」里「只看要处理的」是同一批。机器很自信的在「角色」里核对",
             'Only lines still to do are grouped, the same lines as "Only to do" in Scenes. Lines the machine is confident about are checked in Characters',
           )}
         >

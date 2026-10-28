@@ -201,7 +201,7 @@ test("README demo", async ({ page, request }) => {
   await press(page, "o");
   await caption(
     page,
-    say("再按角色检查，最没把握的排最前", "Then check each character, least sure first"),
+    say("再按角色检查，最不自信的排最前", "Then check each character, least sure first"),
   );
   await page.waitForTimeout(1800);
   await pick(WRONG_IN_LIST);

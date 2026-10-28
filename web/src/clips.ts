@@ -20,8 +20,8 @@ export type LabelText = Record<string, string>;
 export const statusText = (status: Status) =>
   ({
     confirmed: tr("已确认", "Confirmed"),
-    auto: tr("机器有把握", "Confident"),
-    review: tr("没把握", "Not confident"),
+    auto: tr("机器很自信", "Confident"),
+    review: tr("不自信", "Not confident"),
     unlabeled: tr("机器还没猜", "Not guessed yet"),
     skipped: tr("太短，已忽略", "Too short, ignored"),
     ignored: tr("已忽略", "Ignored"),
@@ -48,7 +48,7 @@ export const ignoredTip = () =>
 
 export const likelyLowTip = () =>
   tr(
-    "机器判断这句很可能质量低（背景音重、几个人同时说话之类），先放一边，不算要处理的，也不会被当成机器有把握的导出。机器判错了的话，照常标人就行",
+    "机器判断这句很可能质量低（背景音重、几个人同时说话之类），先放一边，不算要处理的，也不会被当成机器很自信的导出。机器判错了的话，照常标人就行",
     "The machine finds this line very likely low quality (loud background, several people at once and so on), so it is set aside: not work to do, and not exported as a confident guess. If the machine is wrong, just label the character as usual",
   );
 
