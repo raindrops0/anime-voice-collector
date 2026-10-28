@@ -451,8 +451,8 @@ export function App() {
   /* Fetch the list again on a new episode, view or character. Once fetched its order stays fixed: labeled lines
      stay where they are instead of jumping away. */
   const hasState = !!state;
-  /* Which list `clips` holds, Scenes' episode or Characters' character. Until the one shown has come, its counts
-     would all read 0 and Scenes would say the episode is done, so the views wait instead. */
+  /* Which list `clips` holds: Groups' or Scenes' episode, or Characters' character. Until the one shown has come,
+     its counts would all read 0 and Scenes would say the episode is done, so the views wait instead. */
   const [listFor, setListFor] = useState<string | null>(null);
   const listLoading = listFor !== (view === "scene" ? `scene|${episode}` : `roles|${role}`);
   const load = useCallback(async () => {
@@ -505,6 +505,7 @@ export function App() {
         if (seq === loadSeq.current) setGroupsLoading(false);
       }
       setGroups(found);
+      setListFor(`groups|${episode}`);
       setPicked({});
       setClips(found.flatMap((g) => g.clips));
       setPlaced({});
@@ -570,7 +571,9 @@ export function App() {
      move. These are the lines whose guess changed, the lines joining or leaving Maybe missed, and in Scenes the lines
      you labeled into a part not ticked, or back into a ticked one, as an undo does. */
   const held = useMemo(() => {
-    if (view !== "scene" && view !== "roles") return null;
+    /* Not while the list of another view, episode or character is still shown: right after switching, it would
+       look like lines waiting to join or leave. */
+    if ((view !== "scene" && view !== "roles") || listLoading) return null;
     const fresh =
       view === "scene"
         ? clips.filter((c) => parts.has(partOf(c))).map((c) => c.id)
@@ -591,7 +594,7 @@ export function App() {
     const moved = order.filter((id) => next.has(id)).some((id, i) => id !== keptNext[i]);
     return join || leave || moved ? { join, leave } : null;
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `roleFresh` reads only clips, incoming, missedNext and role
-  }, [placed, incoming, missedNext, view, clips, parts, role, roleParts, order]);
+  }, [placed, incoming, missedNext, view, clips, parts, role, roleParts, order, listLoading]);
   /* Lay the list out again with the new guesses. The open line stays open if it is still in the list, else the
      next one after it that is. */
   const loadHeld = () => {
