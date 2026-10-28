@@ -221,6 +221,8 @@ export function App() {
   /* The workspace's choice, once made, is what every view goes by. Set before the views below read it. */
   if (state?.purpose && state.purpose !== currentPurpose()) setPurpose(state.purpose);
   const dockOrder = useRef<string[]>([]);
+  /* New names a rename has put in the bottom bar's order, kept there until the list from the server has them. */
+  const renamedTo = useRef(new Set<string>());
   const playerRef = useRef<Player | null>(null);
   /* What to do when the stage's line plays to its end: in continuous play, go on to the next line. */
   const lineEnded = useRef<() => void>(() => {});
@@ -254,9 +256,14 @@ export function App() {
   const episodeInfo = state?.episodes.find((e) => e.name === episode);
   /* The order of the bottom bar stays fixed for the session, with new characters added at the end, so number keys
      don't move under your hand. It is filled in while rendering, so a new character shows up at once without
-     waiting for the next refresh. Names that are gone can stay in the order. On a rename the new name first takes
-     the place right after the old one; see renameRole. */
+     waiting for the next refresh. On a rename the new name first takes the place right after the old one; see
+     renameRole. Names that are gone leave the order: a new character is first called "Character 1" or the like,
+     a name freed again once it is named or taken back, and the next new character, given the same name, would
+     take that old place instead of the end, moving the keys of the ones after it. */
   if (state) {
+    const names = new Set(state.roles.map((r) => r.name));
+    for (const n of names) renamedTo.current.delete(n);
+    dockOrder.current = dockOrder.current.filter((n) => names.has(n) || renamedTo.current.has(n));
     const known = new Set(dockOrder.current);
     for (const r of state.roles) if (!known.has(r.name)) dockOrder.current.push(r.name);
   }
@@ -1027,8 +1034,10 @@ export function App() {
     if (!role || !next || next === role) return;
     /* A rename keeps the number key: the new name takes the old name's place. On a merge the old name leaves the bar. */
     const renamed = !roles[next];
-    if (renamed)
+    if (renamed) {
       dockOrder.current = dockOrder.current.flatMap((n) => (n === role ? [n, next] : [n]));
+      renamedTo.current.add(next);
+    }
     const result = await send(
       "/api/roles",
       { name: role, new_name: next },
@@ -1036,9 +1045,8 @@ export function App() {
         ? tr(`已改名为 ${next}`, `Renamed to ${next}`)
         : tr(`已并进 ${next}`, `Merged into ${next}`),
     );
-    if (result) {
-      setRole(next);
-    }
+    if (result) setRole(next);
+    else renamedTo.current.delete(next);
   };
   const toggleTarget = async () => {
     const info = role ? roles[role] : undefined;
@@ -1104,14 +1112,17 @@ export function App() {
       /* Like a rename in the Characters view: the new name keeps the number key. */
       const old = name;
       dockOrder.current = dockOrder.current.flatMap((n) => (n === old ? [n, typed] : [n]));
+      renamedTo.current.add(typed);
       if (
         !(await send(
           "/api/roles",
           { name, new_name: typed },
           tr(`已起名为 ${typed}`, `Named ${typed}`),
         ))
-      )
+      ) {
+        renamedTo.current.delete(typed);
         return;
+      }
       name = typed;
     }
     if (!image) return;
