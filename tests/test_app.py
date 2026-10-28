@@ -9,18 +9,18 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from avoc.app.labels import OTHER, LabelStore
-from avoc.app.model import train_and_predict
 from avoc.app.server import AppState, create_app
-from avoc.app.workspace import Clip, text_for
+from avoc.labels import OTHER, LabelStore
+from avoc.model import train_and_predict
 from avoc.stages.text_language import syllables
+from avoc.workspace import Clip, text_for
 from tests.fixtures import episode
 
 
 @pytest.fixture(autouse=True)
 def guess_from_one_line(monkeypatch: pytest.MonkeyPatch) -> None:
     """The workspaces here have a handful of lines, so the app guesses a target from one of them."""
-    monkeypatch.setattr("avoc.app.server.MIN_GUESS_LABELS", 1)
+    monkeypatch.setattr("avoc.service.MIN_GUESS_LABELS", 1)
 
 
 def test_store_keeps_every_step_and_undoes_whole_batches(tmp_path: Path) -> None:
@@ -355,7 +355,7 @@ def test_chances_add_up_to_one_and_a_rejected_name_gets_none() -> None:
 def test_with_one_target_it_is_the_old_logistic_regression() -> None:
     from sklearn.linear_model import LogisticRegression
 
-    from avoc.app.model import STRENGTH
+    from avoc.model import STRENGTH
 
     rng = np.random.default_rng(3)
     features = rng.normal(0, 1, (60, 5))
@@ -455,7 +455,7 @@ def test_text_follows_the_line_and_overlap_follows_the_voice(tmp_path: Path) -> 
 
 
 def test_clips_whose_voices_overlap_are_marked() -> None:
-    from avoc.app.workspace import overlapping
+    from avoc.workspace import overlapping
 
     spans = [(0.0, 2.0), (1.5, 3.0), (3.05, 4.0), (5.0, 6.0), (5.95, 7.0)]
     assert overlapping(spans) == {(0.0, 2.0), (1.5, 3.0)}
@@ -505,7 +505,7 @@ def test_an_unfinished_episode_can_be_carried_on_from_the_page(
     import shutil
     import sys
 
-    monkeypatch.setattr("avoc.app.adding.shutil.which", lambda _: "found")
+    monkeypatch.setattr("avoc.adding.shutil.which", lambda _: "found")
     root = _workspace(tmp_path)
     half = episode(root / "episodes", "ep2", np.array([[1.0, 0.0, 0.0]] * 6, dtype=float))
     shutil.rmtree(half / "embeddings")
@@ -565,7 +565,7 @@ def test_messages_follow_the_page_language(tmp_path: Path) -> None:
 
 
 def test_an_ignored_line_is_set_aside(tmp_path: Path) -> None:
-    from avoc.app.labels import IGNORED
+    from avoc.labels import IGNORED
 
     state = AppState(_workspace(tmp_path), ("redimnet2-b6",), grouping="redimnet2-b6")
     client = TestClient(create_app(state))
@@ -627,7 +627,7 @@ def test_the_low_quality_hint_shows_and_sets_lines_aside(tmp_path: Path) -> None
 def test_lines_with_the_low_quality_hint_are_not_counted_to_check(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("avoc.app.server.MIN_GUESS_LABELS", 1)
+    monkeypatch.setattr("avoc.service.MIN_GUESS_LABELS", 1)
     state = AppState(_workspace(tmp_path), ("redimnet2-b6",), grouping="redimnet2-b6")
     client = TestClient(create_app(state))
     clips = client.get("/api/clips", params={"episode": "ep1"}).json()
@@ -673,7 +673,7 @@ def test_lines_with_the_low_quality_hint_are_not_work_to_do(tmp_path: Path) -> N
 def test_api_says_which_targets_wait_for_more_lines(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("avoc.app.server.MIN_GUESS_LABELS", 2)
+    monkeypatch.setattr("avoc.service.MIN_GUESS_LABELS", 2)
     state = AppState(_workspace(tmp_path), ("redimnet2-b6",), grouping="redimnet2-b6")
     client = TestClient(create_app(state))
     clips = client.get("/api/clips", params={"episode": "ep1"}).json()
@@ -838,6 +838,13 @@ def test_an_added_target_lists_old_others_that_may_be_it(tmp_path: Path) -> None
     listed = {c["id"]: c for c in client.get("/api/clips", params={"role": "B"}).json()}
     assert listed[ids[3]].get("maybe") is True
     assert ids[5] in listed and not listed[ids[5]].get("maybe")
+    # Only the possibly missed clips, as the web app fetches them after each change.
+    missed = client.get("/api/clips", params={"role": "B", "maybe": True}).json()
+    assert [c["id"] for c in missed] == [c["id"] for c in listed.values() if c.get("maybe")]
+    # Labeled "other" again: now judged against B too, so it is no longer possibly missed.
+    client.post("/api/label", json={"clips": [ids[3]], "label": OTHER})
+    missed = client.get("/api/clips", params={"role": "B", "maybe": True}).json()
+    assert ids[3] not in {c["id"] for c in missed}
 
     # Remove A as a target: A's labels stay, but the machine no longer guesses A.
     client.post("/api/roles", json={"name": "A", "target": False})
@@ -875,7 +882,7 @@ def test_roles_report_total_length_and_other_can_be_listed(tmp_path: Path) -> No
 def test_an_ignored_line_is_listed_under_the_character_the_machine_gives_it(
     tmp_path: Path,
 ) -> None:
-    from avoc.app.labels import IGNORED
+    from avoc.labels import IGNORED
 
     root = _workspace(tmp_path)
     state = AppState(root, ("redimnet2-b6",), grouping="redimnet2-b6")
@@ -976,7 +983,7 @@ def test_changes_api_rejects_unknown_entries_and_reads_old_flag_names(tmp_path: 
     client.post("/api/changes", json={"changes": [{"clip": clip, "overlap": True}]})
     assert state.store.labels[clip] == "A" and state.store.unusable == {clip}
     bad = client.post("/api/changes", json={"changes": [{"clip": clip}]})
-    assert bad.status_code == 400
+    assert bad.status_code == 422
     assert state.store.labels[clip] == "A"
 
 
@@ -1140,7 +1147,7 @@ def test_the_add_form_can_queue_several_episodes(tmp_path: Path) -> None:
 def test_the_episode_copy_is_used_only_while_its_sources_are_unchanged(tmp_path: Path) -> None:
     """The page plays an episode from its whole copy only when the copy was made from the files as
     they are now; until then each line plays its own cut. Tests make no copies themselves."""
-    from avoc.app.video import COPY_FOLDER, copy_signature
+    from avoc.video import COPY_FOLDER, copy_signature
 
     state = AppState(_workspace(tmp_path), ("redimnet2-b6",), grouping="redimnet2-b6")
     client = TestClient(create_app(state))
@@ -1148,7 +1155,7 @@ def test_the_episode_copy_is_used_only_while_its_sources_are_unchanged(tmp_path:
     assert not client.get("/api/state").json()["episodes"][0]["player"]
     assert client.get("/episode-media/ep1/vocals").status_code == 404
     state.want_copy("ep1")
-    assert state._copy_wanted == []
+    assert state.playback._copy_wanted == []
 
     folder = Path(meta["directory"]) / "app_media" / COPY_FOLDER
     folder.mkdir(parents=True)
@@ -1167,7 +1174,7 @@ def test_the_episode_copy_is_used_only_while_its_sources_are_unchanged(tmp_path:
 
 
 def test_each_picture_pad_keeps_its_own_cuts() -> None:
-    from avoc.app.video import media_name
+    from avoc.video import media_name
 
     assert media_name("video", "a") == "video/a.line.mp4"
     assert media_name("video", "a", 5, 0.5) == "video/a.ctx5.pad500.mp4"

@@ -12,6 +12,7 @@ give one, is used to spot other people's lines that got mixed in.
 
 from __future__ import annotations
 
+import bisect
 import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -349,3 +350,28 @@ def match_hits(
     if covered < COVER:
         return text, say("台词只盖住片段一小部分", "the lines cover only a small part of the clip")
     return text, None
+
+
+MIN_TEXT_OVERLAP = 0.5
+"""The overlap between a clip and a subtitle line must be at least this share of the shorter of the
+two. Only then does the line count as the clip's dialogue.
+
+Times are not matched exactly. In episodes 1 and 2, some clips were cut early by speech detection,
+so their edges do not line up with subtitle lines."""
+
+
+def text_for(
+    lines: list[tuple[float, float, str]], starts: list[float], start: float, end: float
+) -> str:
+    """The subtitle lines that overlap this time span enough. When a bilingual subtitle has
+    several lines at the same time, they are joined with slashes."""
+    found: list[str] = []
+    at = bisect.bisect_left(starts, start - 20.0)
+    for low, high, text in lines[at:]:
+        if low >= end:
+            break
+        shared = min(high, end) - max(low, start)
+        shorter = min(high - low, end - start)
+        if shorter > 0 and shared >= MIN_TEXT_OVERLAP * shorter and text not in found:
+            found.append(text)
+    return " / ".join(found)

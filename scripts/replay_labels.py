@@ -6,7 +6,7 @@ that are never trained on. Also replays the same labels in random order.
     uv run python scripts/replay_labels.py workspace teo --train ep01,ep02 --test ep03
 
 Only lines labeled the target or "Other" by a person count; "low quality" lines are left out.
-The results for Tokai Teio are in docs/HOW_IT_WORKS.md#how-many-labels-before-the-guesses-are-good.
+The results for Tokai Teio are in the docstring of MIN_GUESS_LABELS in src/avoc/model.py.
 """
 
 from __future__ import annotations
@@ -18,9 +18,9 @@ from typing import Any
 
 import numpy as np
 
-from avoc.app.labels import OTHER, LabelStore
-from avoc.app.model import AUTO_CONFIDENCE, train_and_predict
-from avoc.app.workspace import DEFAULT_MODELS, GROUPING_MODEL, Clip, load_workspace
+from avoc.labels import OTHER, LabelStore
+from avoc.model import AUTO_CONFIDENCE, train_and_predict
+from avoc.workspace import DEFAULT_MODELS, GROUPING_MODEL, Clip, load_workspace
 
 STEPS = [2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 400, 500]
 RUNS = 10

@@ -1,52 +1,45 @@
 # Documentation index
 
-## Plans
+These pages cover what users and contributors need to run, use and change the app. New here? Start with the guide.
 
-| What you want to know | Read | Main sections |
-| --- | --- | --- |
-| Who it is for, the direction, and what is planned | [ROADMAP.md](ROADMAP.md) | [Direction](ROADMAP.md#direction), [Labeling interface](ROADMAP.md#labeling-interface), [Platforms](ROADMAP.md#platforms) |
+## Guide
 
-## Usage and how it works
+Step by step, in English and Simplified Chinese.
 
-| What you want to know | Read | Main sections |
-| --- | --- | --- |
-| How to type the commands | [USAGE.md](USAGE.md) | [Processing a new episode](USAGE.md#processing-a-new-episode), [Labeling and correction interface](USAGE.md#labeling-and-correction-interface) |
-| How things work, and what the terms mean | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | [Glossary](HOW_IT_WORKS.md#glossary), [Flow](HOW_IT_WORKS.md#flow), [Labeling and correction interface](HOW_IT_WORKS.md#labeling-and-correction-interface), [Data files](HOW_IT_WORKS.md#data-files) |
-| What is cleaned from subtitle text, and what to do when it warns about marks | [SUBTITLES.md](SUBTITLES.md) | [Way 1: convert the file to the plain subtitle format](SUBTITLES.md#way-1-convert-the-file-to-the-plain-subtitle-format), [Way 2: add a rule](SUBTITLES.md#way-2-add-a-rule) |
-| Dependencies, models, runtime environment | [TOOLS.md](TOOLS.md) | |
-| How the web app must look and behave, so each thing is learned once | [UI_DESIGN.md](UI_DESIGN.md) | [The same thing looks the same everywhere](UI_DESIGN.md#the-same-thing-looks-the-same-everywhere), [Color](UI_DESIGN.md#color), [Typing](UI_DESIGN.md#typing) |
+- [Install](guide/install.md) ([简体中文](guide/install.zh.md)) owns the Windows download, setup with git, FFmpeg, `avoc doctor` and the Hugging Face token.
+- [Your first dataset](guide/first-dataset.md) ([简体中文](guide/first-dataset.zh.md)) walks from an empty folder to an export. It owns no details: each step links to the page that does.
 
-## Conclusions
+## Features
 
-| What you want to know | Read | Main sections |
-| --- | --- | --- |
-| Which approaches are settled, and which paths were ruled out | [DECISIONS.md](DECISIONS.md) | [Settled](DECISIONS.md#settled), [Ruled out](DECISIONS.md#ruled-out) |
+What each part of the app does, and every option in it.
 
-## Contributing
+- [Adding episodes](features/adding-episodes.md) owns the add form, which subtitles to give, what happens when adding stops, and adding a whole season.
+- [Labeling basics](features/labeling.md) owns target characters, low quality, ignored lines, retraining and "Update list", names and avatars, undo and history, and page settings.
+- [Groups](features/groups.md), [Scenes](features/scenes.md), [Characters](features/characters.md) and [Export](features/export.md) own their view's controls and which lines they list. Characters also owns the "Maybe missed" rules; Export owns the output files.
 
-| What you want to know | Read | Main sections |
-| --- | --- | --- |
-| How to set up, check and send a change, and how to work on the web app | [CONTRIBUTING.md](CONTRIBUTING.md) | [Python side](CONTRIBUTING.md#python-side), [Web app](CONTRIBUTING.md#web-app) |
+## Reference
 
-## What each doc covers
+- [Commands](reference/commands.md) owns every `avoc` command and option.
+- [Shortcuts](reference/shortcuts.md) owns the keyboard shortcuts.
+- [Scripts and agents](reference/agents.md) owns `avoc workspace` and the HTTP interface for scripts and AI agents.
+- [HOW_IT_WORKS.md](HOW_IT_WORKS.md) owns terms (the glossary), how labels of new targets are treated, text in the spoken language, and [the data files and backups](HOW_IT_WORKS.md#data-files).
+- [SUBTITLES.md](SUBTITLES.md) owns subtitle warnings and the plain subtitle format.
+- [TOOLS.md](TOOLS.md) owns runtime requirements, model source links and the development tool list.
 
-One fact is written in one place only. Elsewhere, only a link.
+## Plans and contributing
 
-| Doc | Only covers | Does not cover |
-| --- | --- | --- |
-| ROADMAP | Users, direction, planned features, platforms | Next steps for now, experiment numbers, interface design rules |
-| USAGE | Commands and options | Why these were chosen |
-| HOW_IT_WORKS | Terms, flow, data formats, and the measurement behind a number the program uses | Why a way was chosen (DECISIONS), other experiment numbers |
-| DECISIONS | Settled and ruled-out technical choices, each with one reason | Numeric details, approaches not fully tested yet |
-| SUBTITLES | The caption habits removed from subtitle text, the warning about unknown marks, the plain subtitle format | Reading encodings and picking styles (HOW_IT_WORKS), command options (USAGE) |
-| TOOLS | What each dependency and model is, and how it is connected | Which one is good or bad |
-| UI_DESIGN | Design rules of the web app: what looks the same, colors, when to type, layout | How to use each view (USAGE), how it works inside (HOW_IT_WORKS) |
-| CONTRIBUTING | Setting up for development, the checks, the web app workflow, rules for pictures, the README and page text | Commands for users (USAGE), which tools are used (TOOLS) |
+- [ROADMAP.md](ROADMAP.md) owns planned user-facing features and platform support.
+- [CONTRIBUTING.md](CONTRIBUTING.md) owns development setup, checks, web builds and releases.
+- [UI_DESIGN.md](UI_DESIGN.md) owns interface conventions for appearance and interaction.
 
-These pages are public: they hold only what every user and contributor should know. The maintainer's own progress, experiments, local paths and release plans are kept outside git.
+[USAGE.md](USAGE.md) only says where its old sections moved.
 
-When maintaining: if the direction changes, change ROADMAP. When it is settled, the conclusion goes into DECISIONS and the numbers are removed. An approach that is overturned is changed directly or moved into "Ruled out", and no running log is kept. When a new doc is added, add a line for it in the matching section of this page. When one kind of doc grows past 8 files, split it into its own index page. After changing docs, run `lychee --offline --include-fragments --no-progress AGENTS.md docs` and fix any broken links. Dropping `--offline` also checks the web links.
+## Maintaining these pages
+
+Keep each fact in one owning page and link to it elsewhere. Public docs contain usage, interface contracts and contributor instructions. Keep core implementation ideas, algorithm details, technical decisions, experiments and measurement records in the maintainer's ignored `private/` folder. Public docs must remain usable without that folder and must not link to its contents.
+
+When adding a public page, list it here and define its scope. When one topic grows past eight files, give it a separate index. The guide pages have a Chinese copy (`.zh.md`); change both in the same commit. After changing docs, run `lychee --offline --include-fragments --no-progress AGENTS.md docs` and fix broken local links. Dropping `--offline` also checks web links.
 
 ## How to write
 
-Use plain, easy words. Do not invent abbreviations, and do not use jargon. The first time a borrowed metric name appears, explain in one sentence what it measures. All such terms are collected in the [glossary](HOW_IT_WORKS.md#glossary). Measured facts, guesses that explain them, and plans not yet carried out must be written separately.
+Use plain, easy English. Do not invent abbreviations or use jargon. Explain a borrowed metric name the first time it appears. User-facing terms belong in the [glossary](HOW_IT_WORKS.md#glossary). Feature pages use short sections, lists and tables, not long paragraphs; the guide uses numbered steps.

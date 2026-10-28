@@ -495,3 +495,22 @@ def find_offsets(
     moved = _mask(shift_lines(lines, parts), length)
     union = float(((moved + spoken) > 0).sum())
     return parts, round(float((moved * spoken).sum()) / union if union else 0.0, 4)
+
+
+def subtitle_lines(episode: dict[str, Any]) -> list[tuple[float, float, str]]:
+    """The subtitle lines for this episode, with the offset already added and converted to
+    audio-track time. They come from the styles recorded when the episode was cut. Episodes cut
+    before styles were recorded pick them again, which gives the same lines."""
+    from avoc.stages.subtitle import episode_parts, load_dialogue, offset_at
+    from avoc.stages.text_subtitle import turn_lines
+
+    path = Path(episode.get("subtitles") or "")
+    if not path.is_file():
+        return []
+    parts = episode_parts(episode)
+    styles = episode.get("subtitle_styles")
+    if episode.get("segmentation") == "speaker_turns":
+        timed = [(x.start, x.end, x.text) for x in turn_lines(path, styles)]
+    else:
+        timed = [(d["start"], d["end"], d["text"]) for d in load_dialogue(path, styles)]
+    return [(a + offset_at(parts, a), b + offset_at(parts, a), text) for a, b, text in timed]

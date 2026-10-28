@@ -1,104 +1,22 @@
 import { currentLanguage } from "./language";
 
-/* ───────────── What the server sends back ─────────────
-   Written by hand from src/avoc/app/server.py. When an answer there changes, change it here too. */
+import type { Clip } from "./generated";
+import type { Job } from "./generated";
+export type {
+  Status,
+  Guess,
+  Clip,
+  Counts,
+  Role,
+  Roles,
+  Episode,
+  Spoken,
+  Model,
+  Summary,
+  ChangeResult,
+  Job,
+} from "./generated";
 
-/* Where a line stands: confirmed by a person, the machine is confident, needs a person to check, no guess (no model
-   yet, or no voiceprint), a short line skipped by default, ignored by a person, or set aside as very likely low
-   quality. */
-export type Status =
-  "confirmed" | "auto" | "review" | "unlabeled" | "skipped" | "ignored" | "likely_low";
-
-export interface Guess {
-  name: string;
-  p: number;
-}
-
-/* One line, as AppState.view writes it. */
-export interface Clip {
-  id: string;
-  episode: string;
-  start: number;
-  end: number;
-  duration: number;
-  /* Shorter than 1 second or of at most two syllables: skipped by default (status "skipped") until someone labels
-     it, and then used like any other line. Stays true after it is labeled. */
-  short: boolean;
-  /* Its voice overlaps another line's: two people speaking at once, most likely. */
-  overlap: boolean;
-  /* The main subtitle line, shown large. */
-  text: string;
-  /* The secondary subtitle line, shown small under it ("" when there is none). */
-  display?: string;
-  scene: number;
-  voiced: boolean;
-  label: string | null;
-  rejects: string[];
-  unusable: boolean;
-  /* The machine's chance that it is low quality, only when high enough to show the hint; else null. */
-  low: number | null;
-  guess: Guess[];
-  familiar: boolean | null;
-  status: Status;
-  /* Only in the Characters view's list: not given to this character, but it might be them. */
-  maybe?: boolean;
-  /* The text in the language spoken, as exported, and why it would not be exported (null if it would). */
-  spoken: string;
-  spoken_problem: string | null;
-  /* The target character it belongs to, by a person's label or the machine's top guess. */
-  role: string | null;
-}
-
-/* Lines confirmed, lines the machine gave them, and the seconds of the confirmed ones. `to_check` is the part of
-   `predicted` without the "maybe low quality" hint: what Characters lists under Not confident and Confident. */
-export interface Counts {
-  confirmed: number;
-  predicted: number;
-  to_check: number;
-  seconds: number;
-  low_seconds: number;
-}
-
-export interface Role extends Counts {
-  name: string;
-  named: boolean;
-  pattern: number;
-  target: boolean;
-  color?: string | null;
-  avatar?: string | null;
-}
-
-/* The characters by name. A name may be missing: a label can name a character that has just been renamed. */
-export type Roles = Record<string, Role | undefined>;
-
-export interface Episode {
-  name: string;
-  video: boolean;
-  offset: number | null;
-  /* More than one when the subtitle timing jumped within the episode and each part got its own offset. */
-  offset_parts?: number;
-  counts: Partial<Record<Status, number>>;
-  /* Lines still to do, what Scenes lists under To do: not confident or not guessed yet, without the "maybe low
-     quality" hint. */
-  work: number;
-  /* Its whole-episode copy is ready, so lines play from it instead of one cut each. Missing on an older server. */
-  player?: boolean;
-  spoken: Spoken;
-}
-
-/* The language an episode speaks, and where its text in that language comes from. */
-export interface Spoken {
-  language: string;
-  /* No audio track tag or person said it, so Japanese is taken. */
-  assumed: boolean;
-  /* "cut": the main subtitles are in that language; null: they are not, so there is no text. */
-  source: "cut" | null;
-  problem: string | null;
-  /* Clips of target characters that cannot be exported with text. */
-  blocked: number;
-}
-
-/* The audio tracks of a video: /api/audio-tracks. `number` is the one used when no language is given. */
 export interface AudioTracks {
   tracks: {
     number: number;
@@ -110,56 +28,6 @@ export interface AudioTracks {
   number: number | null;
   language: string | null;
   from: "track" | "assumed" | null;
-}
-
-export interface Model {
-  labels?: number;
-  roles?: number;
-  seconds?: number;
-  familiar_threshold?: number | null;
-  /* A target is guessed once this many of their lines are confirmed and someone is labeled not them. */
-  min_labels?: number;
-  /* Targets not guessed yet: their confirmed lines, and lines known not to be them. */
-  waiting?: Record<string, { lines: number; others: number }>;
-  auto_confidence: number;
-}
-
-/* The overview: /api/state. */
-export interface Summary {
-  episodes: Episode[];
-  workspace: string;
-  /* Where an export goes by default, in full: exports/<today> in the workspace, or <today>-2 and so on when used. */
-  export_folder: string;
-  /* Episodes not loaded, and why. */
-  skipped: Record<string, string>;
-  /* Those of them whose clips were never cut: they can be given up. Missing when the server is older than this page. */
-  not_cut?: string[];
-  roles: Role[];
-  other: Counts;
-  model: Model;
-  /* Seconds of picture shown before and after each line, with the vocals muted there (PICTURE_PAD in the
-     server's video.py). Missing when the server is older than this page. */
-  picture_pad?: number;
-  can_undo: boolean;
-  /* The program was updated after this server started. Missing when the server is older than this page. */
-  outdated?: boolean;
-  /* What the voices are for, chosen once at the start; null until then (see purpose.ts). */
-  purpose: "tts" | "audio" | null;
-}
-
-/* The answer to a label change, an undo or a character change. */
-export interface ChangeResult {
-  batch: number | null;
-  undo?: boolean;
-  updated: Clip[];
-  ripple: number;
-  state: Summary;
-  /* Only when a new character was made: its name. */
-  role?: string;
-  /* Only after taking steps back: steps left out because a name they need back is taken now, or a character
-     they need is gone; and how many lines kept a later change. */
-  skipped?: { batch: number; name: string }[];
-  kept?: number;
 }
 
 /* One step in the history list: /api/history. */
@@ -275,13 +143,44 @@ export async function call<T>(url: string, body?: unknown): Promise<T> {
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      detail = ((await response.json()) as { detail?: string }).detail || detail;
+      const error = (await response.json()) as { detail?: string | { msg: string }[] };
+      detail =
+        typeof error.detail === "string"
+          ? error.detail
+          : error.detail?.map((e) => e.msg).join("; ") || detail;
     } catch {
       /* Not JSON: keep the status text. */
     }
     throw new Error(sentence(detail));
   }
   return response.json() as Promise<T>;
+}
+
+/* A lost response can be retried with the same request ID without applying the change twice. */
+export async function command<T>(
+  operation: string,
+  payload: object,
+  revision: number | null,
+  requestId: string = crypto.randomUUID(),
+): Promise<T> {
+  const body = { operation, payload, expected_revision: revision, request_id: requestId };
+  try {
+    return await call<T>("/api/commands", body);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    return call<T>("/api/commands", body);
+  }
+}
+
+export async function waitForJob<T>(id: string, signal?: AbortSignal): Promise<T> {
+  while (!signal?.aborted) {
+    const job = await call<Job>(`/api/jobs/${encodeURIComponent(id)}`);
+    if (job.state === "done") return job.result as T;
+    if (["failed", "stopped", "interrupted"].includes(job.state))
+      throw new Error(job.error || sentence(job.state));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error("Stopped waiting");
 }
 
 /* The server's messages start in lower case, as on the command line; on the page they are sentences. */

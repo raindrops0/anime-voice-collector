@@ -4,6 +4,7 @@ import {
   bestTarget,
   IGNORED,
   maybeListOf,
+  missedChanges,
   OTHER,
   otherName,
   partOf,
@@ -12,6 +13,7 @@ import {
   skippedOf,
   skipReason,
   whoOf,
+  withMissed,
 } from "./clips";
 
 const clip = (id: string, extra: Partial<Clip> = {}): Clip => ({
@@ -61,6 +63,23 @@ test("pendingOf lists unconfirmed lines, least sure first, and leaves out maybe 
   const list = [sure, unsure, done, maybe];
   expect(pendingOf(list).map((c) => c.id)).toEqual(["unsure", "sure"]);
   expect(maybeListOf(list).map((c) => c.id)).toEqual(["maybe"]);
+});
+
+test("the newest maybe missed list replaces the old one, in its own order", () => {
+  const todo = clip("todo");
+  const kept = clip("kept", { maybe: true });
+  const gone = clip("gone", { maybe: true, label: "B" });
+  const fresh = [clip("new", { maybe: true }), clip("kept", { maybe: true, text: "newer" })];
+  const list = [todo, kept, gone];
+  expect(missedChanges(list, fresh)).toEqual(["gone", "new"]);
+  const merged = withMissed(list, fresh);
+  expect(merged.map((c) => [c.id, !!c.maybe])).toEqual([
+    ["todo", false],
+    ["gone", false],
+    ["new", true],
+    ["kept", true],
+  ]);
+  expect(merged.find((c) => c.id === "kept")?.text).toBe("newer");
 });
 
 test("other typed as a name in either language means the other label", () => {

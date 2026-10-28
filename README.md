@@ -50,7 +50,7 @@ Here you label a few lines while watching the scene. A small model learns your c
 
 You need Windows. An NVIDIA graphics card is strongly recommended; without one, removing the music from one episode takes much longer.
 
-**The easy way:** download `anime-voice-collector-…-windows.zip` from the [Releases page](https://github.com/raindrops0/anime-voice-collector/releases/latest), unzip it to a short path such as `D:\avoc`, and double-click `start.bat`. The first start downloads about 5 GB; everything stays in that folder. Where the README says `uv run …` below, run it in the window `terminal.bat` opens. More in [Set up](docs/USAGE.md#set-up).
+**The easy way:** download `anime-voice-collector-…-windows.zip` from the [Releases page](https://github.com/raindrops0/anime-voice-collector/releases/latest), unzip it to a short path such as `D:\avoc`, and double-click `start.bat`. The first start downloads about 5 GB; everything stays in that folder. Where the README says `uv run …` below, run it in the window `terminal.bat` opens. More in [Install](docs/guide/install.md).
 
 **With git:** you also need [uv](https://docs.astral.sh/uv/) (it installs the right Python for you). If you don't have it yet, open PowerShell and run:
 
@@ -66,7 +66,7 @@ cd anime-voice-collector
 uv sync --locked
 ```
 
-You also need [FFmpeg](https://ffmpeg.org/). If you don't have it, the app's first page installs it for you in one click. To install it yourself instead, see [Set up](docs/USAGE.md#set-up).
+You also need [FFmpeg](https://ffmpeg.org/). If you don't have it, the app's first page installs it for you in one click. To install it yourself instead, see [Install](docs/guide/install.md).
 
 ## Your first episode
 
@@ -97,7 +97,7 @@ You only name the characters you want (the target characters). Everyone else is 
 | **Characters** | `O` | Everything the machine gave one character, least sure first. Fix the wrong ones, then confirm the rest with `Shift+Enter`. Below are lines it may have missed. |
 | **Export** | `E` | Write the dataset. |
 
-Once 10 lines of a character are confirmed and a few others are labeled "Not a target", the machine starts guessing. Each label retrains it in a moment, and other lines show their new guess in place; the list itself changes only when you press "Update list" (or tick "Auto"), so nothing moves under your hand. `Z` undoes the last step, the clock next to Undo takes back any earlier one, `?` lists every key, and the Guide button explains the four views. The full guide is in [docs/USAGE.md](docs/USAGE.md).
+Once 10 lines of a character are confirmed and a few others are labeled "Not a target", the machine starts guessing. Each label retrains it in a moment, and other lines show their new guess in place; the list itself changes only when you press "Update list" (or tick "Auto"), so nothing moves under your hand. `Z` undoes the last step, the clock next to Undo takes back any earlier one, `?` lists every key, and the Guide button explains the four views. The full guide is in [docs/guide/first-dataset.md](docs/guide/first-dataset.md).
 
 ## What you get
 
@@ -135,7 +135,7 @@ Reports from Linux and macOS are welcome in the issues.
 
 ## Docs
 
-How it works, the words it uses, and what was tried and ruled out are in [docs/index.md](docs/index.md). To help, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+The step-by-step guide, what each view does, every command and the words it uses are in [docs/index.md](docs/index.md). To help, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Usage rules
 

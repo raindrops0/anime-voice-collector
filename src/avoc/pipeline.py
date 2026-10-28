@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from avoc import quality
+from avoc.embeddings.cache import load_embeddings as load_embeddings
 from avoc.embeddings.extract import FRONTIER, MIN_SECONDS, embed_segments
 from avoc.language import Words, say
 from avoc.project import (
@@ -396,8 +397,8 @@ def attach_subtitles(directory: Path, subtitles: Path) -> dict[str, Any]:
     speech detection did not have subtitle-line boundaries, so finding their dialogue uses time
     overlap. See app/workspace.py.
     """
-    from avoc.app.workspace import text_for
     from avoc.stages.subtitle import load_dialogue, pick_styles, read_subtitles
+    from avoc.stages.text_subtitle import text_for
 
     episode, rows = load_episode(directory)
     styles = pick_styles(read_subtitles(subtitles))
@@ -438,8 +439,13 @@ def attach_display_subtitles(directory: Path, subtitles: Path) -> dict[str, Any]
     text from them. The dialogue styles are picked as for cutting, and the time offset is found by
     comparing them with the main subtitles. Refused when after lining up the overlap
     is below `MIN_AGREEMENT`."""
-    from avoc.app.workspace import subtitle_lines
-    from avoc.stages.subtitle import find_offsets, load_dialogue, pick_styles, read_subtitles
+    from avoc.stages.subtitle import (
+        find_offsets,
+        load_dialogue,
+        pick_styles,
+        read_subtitles,
+        subtitle_lines,
+    )
     from avoc.stages.text_subtitle import MIN_AGREEMENT, translation_styles
 
     episode, _ = load_episode(directory)
@@ -537,7 +543,7 @@ def next_episode_name(workspace: Path) -> str:
 def find_episode_by_video(workspace: Path, video: Path) -> str | None:
     """The episode in the workspace that was already processed with this video; None if there is
     none."""
-    from avoc.app.workspace import episode_dirs
+    from avoc.project import episode_dirs
 
     wanted = str(video.resolve())
     for directory in episode_dirs(workspace):
@@ -577,7 +583,7 @@ def add_episode(
     "output folder already exists". If no episode name is given, first look for an episode already
     processed with the same video. If none is found, take the next `epNN`.
     """
-    from avoc.app.workspace import DEFAULT_MODELS, GROUPING_MODEL
+    from avoc.settings import DEFAULT_MODELS, GROUPING_MODEL
 
     # Say a mistyped path before anything else is printed or loaded.
     for path, zh, en in (
@@ -779,27 +785,3 @@ def embed(directory: Path, model: str = FRONTIER, device: str = "auto") -> dict[
     write_json(cache / "metadata.json", records)
     write_json(cache / "cache.json", signature)
     return {"episode": episode["name"], "embedded": len(records), "cached": False}
-
-
-def load_embeddings(directory: Path, model: str) -> tuple[list[dict[str, Any]], Any]:
-    import numpy as np
-
-    validate_name(model)
-    cache = cache_dir(directory, model)
-    if read_json(cache / "cache.json") != cache_signature(directory, model):
-        raise ValueError(f"{directory} voiceprint cache is out of date. Run embed again")
-    records = read_json(cache / "metadata.json")
-    vectors = np.load(cache / "vectors.npy", allow_pickle=False)
-    _, rows = load_episode(directory)
-    by_id = {r["id"]: r for r in rows}
-    if (
-        vectors.ndim != 2
-        or len(vectors) != len(records)
-        or not np.isfinite(vectors).all()
-        or len({r["id"] for r in records}) != len(records)
-        or any(by_id.get(r["id"]) != r for r in records)
-    ):
-        raise ValueError("The voiceprint matrix does not match the clip information")
-    if len(vectors) and not np.allclose(np.linalg.norm(vectors, axis=1), 1, atol=1e-4):
-        raise ValueError("The voiceprints are not unit-length vectors")
-    return records, vectors

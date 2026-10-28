@@ -1,7 +1,7 @@
 """Which language subtitle text is in, worked out from its letters by fixed rules, and which
 language an audio track is tagged with.
 
-Exported text must be in the language spoken in the video (see docs/DECISIONS.md). Subtitles come
+Exported text must be in the language spoken in the video. Subtitles come
 in that language, in a translation, or in both at once: bilingual files put the two languages on two
 lines of one entry, or in two styles. So the language is decided line by line:
 

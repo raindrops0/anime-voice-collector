@@ -2,7 +2,7 @@
 
 Input is a 16 kHz analysis copy. Output is unit-length vectors (each vector is scaled to length 1).
 
-The interface uses the models in DEFAULT_MODELS of app/workspace.py.
+The interface uses the models in DEFAULT_MODELS of workspace.py.
 WeSpeaker uses the CPU on the current Windows setup.
 """
 

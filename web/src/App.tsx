@@ -1,6 +1,9 @@
+import { useWorkspaceSync } from "./useWorkspaceSync";
+import { MutationQueue } from "./mutationQueue";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   call,
+  command,
   media,
   warm,
   type Adding,
@@ -23,6 +26,8 @@ import {
   ROLE_PARTS_FIRST,
   roleOrder,
   rolePartOf,
+  missedChanges,
+  withMissed,
   type LabelText,
   type Part,
   type RolePart,
@@ -222,10 +227,13 @@ export function App() {
   /* After retraining, the machine's new guesses show on the lines at once, but the lists do not move under your hand:
      lines don't join, leave or change places until you load the change. `placed` is, for each line whose guess
      changed since the list was laid out, the line as it was then, which decides where it sits; `incoming` the lines
-     the machine has given to the open character since, not in the list yet. A line you labeled yourself moves at
-     once, as before. */
+     the machine has given to the open character since, not in the list yet. In Characters a line you labeled
+     yourself moves at once, except under Maybe missed; in Scenes it waits for the update too. */
   const [placed, setPlaced] = useState<Record<string, Clip>>({});
   const [incoming, setIncoming] = useState<Clip[]>([]);
+  /* In Characters, the server's newest Maybe missed list since the list was laid out, most likely first; null when
+     nothing changed since. Updating the list puts it in place of the old one. */
+  const [missedNext, setMissedNext] = useState<Clip[] | null>(null);
   const loadSeq = useRef(0);
 
   const roles: Roles = useMemo(
@@ -451,6 +459,7 @@ export function App() {
       setClips(list);
       setPlaced({});
       setIncoming([]);
+      setMissedNext(null);
       setListFor(`scene|${episode}`);
       stableOrder.current = null;
       /* The first line to do among the ticked parts, so the stage is not empty when the episode opens. */
@@ -465,6 +474,7 @@ export function App() {
       setClips(list);
       setPlaced({});
       setIncoming([]);
+      setMissedNext(null);
       setListFor(`roles|${role}`);
       const first = roleOrder(list, role).find((c) =>
         ticksNow.current.roleParts.has(rolePartOf(c, role) as RolePart),
@@ -488,6 +498,7 @@ export function App() {
       setClips(found.flatMap((g) => g.clips));
       setPlaced({});
       setIncoming([]);
+      setMissedNext(null);
       setFocus((f) =>
         found.some((g) => g.clips.some((c) => c.id === f)) ? f : found[0]?.clips[0]?.id,
       );
@@ -506,6 +517,7 @@ export function App() {
     setGroups((g) => (g.length ? [] : g));
     setPlaced((p) => (Object.keys(p).length ? {} : p));
     setIncoming((c) => (c.length ? [] : c));
+    setMissedNext(null);
   }, [view, episode, role]);
   useEffect(() => {
     reload();
@@ -524,8 +536,9 @@ export function App() {
   /* The order "next / previous line" follows in the current view */
   const order = useMemo(() => {
     if (view === "scene") {
-      /* The ticked parts, in episode order. Picked once and kept until the ticks or the episode change, so a
-         line just labeled stays where it is, even when its label moves it to a part not ticked. */
+      /* The ticked parts, in episode order. Picked once and kept until the ticks or the episode change or the list
+         is updated, so a line just labeled stays where it is until then, even when its label moves it to a part not
+         ticked. */
       if (!stableOrder.current)
         stableOrder.current = clips.filter((c) => parts.has(partOf(c))).map((c) => c.id);
       return stableOrder.current;
@@ -535,35 +548,45 @@ export function App() {
       return groups.flatMap((g) => g.clips.filter((c) => !c.label).map((c) => c.id));
     return [];
   }, [view, clips, laidOut, parts, roleParts, role, groups]);
+  /* The open character's lines as an updated list holds them: the lines waiting outside joined, and the server's
+     newest Maybe missed lines in place of the old ones. A line no longer missed stays only if it belongs some other
+     way, such as To do when the machine now gives it to the character. */
+  const roleFresh = () => {
+    const all = [...clips, ...incoming];
+    return (missedNext ? withMissed(all, missedNext) : all).filter((c) => belongs(c, role));
+  };
   /* What loading the machine's new guesses would change in the list: lines that would join it, leave it, or only
-     move. Only lines whose guess changed count, so a line you labeled, which stays put in Scenes, does not. */
+     move. These are the lines whose guess changed, the lines joining or leaving Maybe missed, and in Scenes the lines
+     you labeled into a part not ticked, or back into a ticked one, as an undo does. */
   const held = useMemo(() => {
-    const changed = Object.keys(placed);
-    if ((view !== "scene" && view !== "roles") || (!changed.length && !incoming.length))
-      return null;
+    if (view !== "scene" && view !== "roles") return null;
     const fresh =
       view === "scene"
         ? clips.filter((c) => parts.has(partOf(c))).map((c) => c.id)
-        : roleIds(
-            [...clips, ...incoming].filter((c) => belongs(c, role)),
-            role,
-            roleParts,
-          );
+        : roleIds(roleFresh(), role, roleParts);
     const now = new Set(order);
     const next = new Set(fresh);
-    const join = changed.filter((id) => next.has(id) && !now.has(id)).length + incoming.length;
-    const leave = changed.filter((id) => now.has(id) && !next.has(id)).length;
+    const changed = new Set([
+      ...Object.keys(placed),
+      ...(missedNext ? missedChanges([...clips, ...incoming], missedNext) : []),
+      ...(view === "scene"
+        ? [...order.filter((id) => !next.has(id)), ...fresh.filter((id) => !now.has(id))]
+        : []),
+    ]);
+    if (!changed.size && !incoming.length) return null;
+    const join = [...changed].filter((id) => next.has(id) && !now.has(id)).length + incoming.length;
+    const leave = [...changed].filter((id) => now.has(id) && !next.has(id)).length;
     const keptNext = fresh.filter((id) => now.has(id));
     const moved = order.filter((id) => next.has(id)).some((id, i) => id !== keptNext[i]);
     return join || leave || moved ? { join, leave } : null;
-  }, [placed, incoming, view, clips, parts, role, roleParts, order]);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `roleFresh` reads only clips, incoming, missedNext and role
+  }, [placed, incoming, missedNext, view, clips, parts, role, roleParts, order]);
   /* Lay the list out again with the new guesses. The open line stays open if it is still in the list, else the
      next one after it that is. */
   const loadHeld = () => {
     const before = order;
     const at = focusNow.current ? before.indexOf(focusNow.current) : -1;
-    const fresh =
-      view === "roles" ? [...clips, ...incoming].filter((c) => belongs(c, role)) : clips;
+    const fresh = view === "roles" ? roleFresh() : clips;
     const next =
       view === "scene"
         ? fresh.filter((c) => parts.has(partOf(c))).map((c) => c.id)
@@ -572,6 +595,7 @@ export function App() {
     setClips(fresh);
     setPlaced({});
     setIncoming([]);
+    setMissedNext(null);
     if (focusNow.current && !next.includes(focusNow.current)) {
       const keep = new Set(next);
       setFocus(before.slice(at + 1).find((id) => keep.has(id)) ?? next[0]);
@@ -744,13 +768,20 @@ export function App() {
     return besides(last).after.find(rest) ?? order.find(rest);
   };
 
-  const applyResult = (result: ChangeResult, label: string) => {
+  const applyResult = (
+    result: ChangeResult,
+    label: string,
+    missed?: { role: string; clips: Clip[] } | null,
+  ) => {
+    revisionNow.current = result.state.revision;
     setState(result.state);
+    if (missed && viewNow.current === "roles" && roleNow.current === missed.role)
+      setMissedNext(missed.clips);
     const updated: Record<string, Clip | undefined> = Object.fromEntries(
       result.updated.map((c) => [c.id, c]),
     );
-    /* "Maybe missed" is decided when the Characters view fetches its list, and updated lines don't carry it, so
-       keep it; a line labeled as this character is no longer missed. */
+    /* Updated lines don't carry "Maybe missed", so keep it until the list is updated (see `missedNext`); a line
+       labeled as this character is no longer missed. */
     /* The answer may come after you switched view or character, so read the ones open now. */
     /* `updated` lists the lines changed by hand first, then the ones whose guess changed along with them. */
     const byHand = new Set(
@@ -773,9 +804,10 @@ export function App() {
         return out;
       });
       /* In Characters, a line the machine now gives to the open character waits outside the list until loaded. */
-      if (viewNow.current === "roles" && roleNow.current) {
+      const open = roleNow.current;
+      if (viewNow.current === "roles" && open) {
         const have = new Set(list.map((c) => c.id));
-        const mine = (c: Clip) => !have.has(c.id) && whoOf(c)?.name === roleNow.current;
+        const mine = (c: Clip) => !have.has(c.id) && whoOf(c)?.name === open;
         setIncoming((cur) => {
           const out = cur.filter((c) => !updated[c.id]);
           out.push(...result.updated.filter(mine));
@@ -821,27 +853,45 @@ export function App() {
     }
   };
 
+  useWorkspaceSync(state?.revision, busy, (fresh, updated) => {
+    applyResult({ batch: null, updated, ripple: updated.length, state: fresh }, "");
+  });
+
   /* Changes are queued, so no key press is lost: when your hands are faster than a round trip, the first press
      is saved first. The page moves on without waiting for the answer; if saving fails, it says so and moves the
      focus back to that line. */
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const pendingCount = useRef(0);
+  const mutations = useMemo(() => new MutationQueue(setBusy), []);
+  const revisionNow = useRef<number | null>(null);
+  useEffect(() => {
+    revisionNow.current = state?.revision ?? null;
+  }, [state?.revision]);
   /* Lines with a label change still on its way, and how many changes each has queued. */
-  const saving = useRef(new Map<string, number>());
   const send = (
     url: string,
     body: { clips?: string[] } & Record<string, unknown>,
     label: string,
     onFail?: () => void,
   ): Promise<ChangeResult | null> => {
-    setBusy(true);
-    pendingCount.current += 1;
     const ids = body.clips || [];
-    for (const id of ids) saving.current.set(id, (saving.current.get(id) || 0) + 1);
-    const run = queue.current.then(async () => {
+    const requestId = crypto.randomUUID();
+    return mutations.enqueue(ids, async () => {
       try {
-        const result = await call<ChangeResult>(url, body);
-        applyResult(result, label);
+        const name = url.split("/").pop() ?? "";
+        const result = await command<ChangeResult>(
+          name === "roles" ? "role" : name,
+          body,
+          revisionNow.current,
+          requestId,
+        );
+        /* In Characters, the newest Maybe missed list comes with the answer, so the list waits for one update. */
+        const open = roleNow.current;
+        const missed =
+          viewNow.current === "roles" && open && open !== OTHER && result.batch !== null
+            ? await call<Clip[]>(`/api/clips?role=${encodeURIComponent(open)}&maybe=true`).catch(
+                () => null,
+              )
+            : null;
+        applyResult(result, label, missed && open ? { role: open, clips: missed } : null);
         return result;
       } catch (e) {
         showToast(
@@ -850,18 +900,8 @@ export function App() {
         );
         onFail?.();
         return null;
-      } finally {
-        for (const id of ids) {
-          const left = (saving.current.get(id) ?? 1) - 1;
-          if (left > 0) saving.current.set(id, left);
-          else saving.current.delete(id);
-        }
-        pendingCount.current -= 1;
-        if (pendingCount.current === 0) setBusy(false);
       }
     });
-    queue.current = run.then(() => {});
-    return run;
   };
 
   /* One choice sets both who it is and whether it is low quality: low means "them, low quality"; otherwise it is
@@ -902,7 +942,7 @@ export function App() {
   /* A save still on its way can be undone too, though the overview doesn't know of it yet. Afterwards go back to
      the line that was undone, if it is in this list. */
   const undo = async () => {
-    if (!state?.can_undo && pendingCount.current === 0) {
+    if (!state?.can_undo && mutations.pending === 0) {
       showToast(tr("没有可以撤销的操作", "Nothing to undo"));
       return;
     }
@@ -958,7 +998,7 @@ export function App() {
     /* Only the lines in the list as you see it, and whose newest guess is still this character. */
     const pending = pendingOf(laidOut).filter(
       (c) =>
-        !saving.current.has(c.id) &&
+        !mutations.saving.has(c.id) &&
         byId[c.id]?.guess[0]?.name === role &&
         roleParts.has(rolePartOf(c, role) as RolePart),
     );

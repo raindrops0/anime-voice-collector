@@ -20,7 +20,7 @@ from avoc.app.server import AppState, create_app
 from avoc.project import cache_signature, segment_rows, write_json
 
 MODEL = "redimnet2-b6"
-LINE_SECONDS, GAP_SECONDS, RATE = 1.5, 0.3, 16000
+LINE_SECONDS, GAP_SECONDS, RATE = 1.5, 0.3, 48000
 LINES = [
     "おはようございます",
     "今日はいい天気ですね",
@@ -51,6 +51,8 @@ def episode(episodes: Path, name: str, seed: int) -> None:
     ]
     vocals = folder / "vocals.wav"
     sf.write(vocals, np.zeros(int((spans[-1]["end"] + 1) * RATE), dtype=np.float32), RATE)
+    analysis = folder / "analysis.wav"
+    sf.write(analysis, np.zeros(int((spans[-1]["end"] + 1) * 16000), dtype=np.float32), 16000)
     subtitles = folder / "subtitles.srt"
     subtitles.write_text(
         "\n".join(
@@ -65,7 +67,7 @@ def episode(episodes: Path, name: str, seed: int) -> None:
             "schema": "episode.v1",
             "name": name,
             "vocals": str(vocals),
-            "analysis": str(vocals),
+            "analysis": str(analysis),
             "source": str(vocals),
             "sample_rate": RATE,
             "subtitles": str(subtitles),

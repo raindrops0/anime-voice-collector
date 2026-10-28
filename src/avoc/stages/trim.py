@@ -6,7 +6,7 @@ seconds at the median, more than 0.5 seconds in 22% of clips, and 13.8% of all c
 after another, the lines sounded broken up, and the silence also went into voiceprints and exports.
 
 **Only the loudness of the separated vocals is used, no model, and no clip is dropped or split.**
-Cutting by a speech detection model was ruled out (see docs/DECISIONS.md). Here the subtitle line
+Cutting by a speech detection model was ruled out. Here the subtitle line
 still decides that there is a clip; the loudness only moves its two ends inward.
 The voice ran past the subtitle line in only 1.3% of clips at the start and 2.3% at the end, so the
 ends are never moved outward.

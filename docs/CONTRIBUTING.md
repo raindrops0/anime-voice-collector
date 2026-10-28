@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. Start with [docs/index.md](index.md): it lists every doc and what each one covers. Before proposing a different approach, read [docs/DECISIONS.md](DECISIONS.md), which lists what is settled and what was already tried and ruled out.
+Thanks for helping. Start with [docs/index.md](index.md): it lists every doc and what each one covers. Include the problem and relevant validation when proposing a change.
 
 ## Python side
 
@@ -13,11 +13,11 @@ uvx ty@0.0.91 check src
 uv run pytest -q
 ```
 
-The type checker is [ty](https://github.com/astral-sh/ty). It is not a project dependency, so `uvx` runs it on the fly, at the version CI uses. Changing only Python needs no Node.
+The type checker is [ty](https://github.com/astral-sh/ty). It is not a project dependency, so `uvx` runs it on the fly, at the version CI uses. Changing only Python needs no Node, except when [shared interface types](#shared-interface-types) change.
 
 ## Web app
 
-The labeling app is React and TypeScript, built with Vite, styled with Tailwind CSS and shadcn/ui components ([why](DECISIONS.md#identity-and-interface)). The source is in `web/`. The built files in `src/avoc/app/static/` are committed, so people who only install the tool never need Node. Do not edit the built files by hand.
+The labeling app is React and TypeScript, built with Vite, styled with Tailwind CSS and shadcn/ui components. The source is in `web/`. The built files in `src/avoc/app/static/` are committed, so people who only install the tool never need Node. Do not edit the built files by hand.
 
 Set up once: install Node (the current long-term-support version), then
 
@@ -70,12 +70,17 @@ The demo GIF at the top of the README is recorded by a script, so it can be made
 
 ## README
 
-The README comes in English (`README.md`) and Simplified Chinese (`README.zh.md`). When you change one, change the other in the same commit. The other docs are in English only.
+The README comes in English (`README.md`) and Simplified Chinese (`README.zh.md`). When you change one, change the other in the same commit. The same holds for the guide pages in `docs/guide/` and their `.zh.md` copies. The other docs are in English only.
 
 ## Releases
 
-A release is the Windows download described in [Set up](USAGE.md#set-up). To make one, set `version` in `pyproject.toml`, commit, and push a tag with the same version, such as `v0.2.0`. The [release workflow](../.github/workflows/release.yml) builds the zip with [make_zip.ps1](../scripts/release/make_zip.ps1), installs it once to check it, and puts it on a draft release; read the draft's notes, then publish it. A push to `dev` or a pull request that changes `scripts/release/`, the workflow, `pyproject.toml` or `uv.lock` runs the same build and check, and keeps the zip for 7 days under the run's artifacts. To try the zip first, run `pwsh scripts/release/make_zip.ps1`, which packages the last commit (`-Ref (git write-tree)` packages what is staged), unzip it to an empty folder and double-click `start.bat`. The uv inside the zip is the version set in the workflow, and the uv on `PATH` when run by hand.
+A release is the Windows download described in [Install](guide/install.md). To make one, set `version` in `pyproject.toml`, commit, and push a tag with the same version, such as `v0.2.0`. The [release workflow](../.github/workflows/release.yml) builds the zip with [make_zip.ps1](../scripts/release/make_zip.ps1), installs it once to check it, and puts it on a draft release; read the draft's notes, then publish it. A push to `dev` or a pull request that changes `scripts/release/`, the workflow, `pyproject.toml` or `uv.lock` runs the same build and check, and keeps the zip for 7 days under the run's artifacts. To try the zip first, run `pwsh scripts/release/make_zip.ps1`, which packages the last commit (`-Ref (git write-tree)` packages what is staged), unzip it to an empty folder and double-click `start.bat`. The uv inside the zip is the version set in the workflow, and the uv on `PATH` when run by hand.
 
 ## Text in the web app
 
 Both languages are written side by side as `tr(Chinese, English)` where the text is used. Use the terms in the [glossary](HOW_IT_WORKS.md#glossary), and follow the design rules in [docs/UI_DESIGN.md](UI_DESIGN.md).
+
+
+## Shared interface types
+
+After changing the main answer models in `src/avoc/contracts.py`, run `uv run python scripts/generate_contracts.py`, then format `web/src/generated.ts` with the web app's formatter. Commit that file and rebuild the front end. CI runs `uv run python scripts/generate_contracts.py --check` so Python and TypeScript cannot silently disagree. Business operations belong in `operations.py` and `service.py`; HTTP routes and command-line parsing call them rather than implementing their own label rules.

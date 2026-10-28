@@ -50,7 +50,7 @@
 
 需要 Windows。强烈建议用 NVIDIA 显卡；没有的话，去掉一集的音乐要慢得多。
 
-**最简单的办法：** 在 [Releases 页面](https://github.com/raindrops0/anime-voice-collector/releases/latest)下载 `anime-voice-collector-…-windows.zip`，解压到短一点的路径，比如 `D:\avoc`，双击 `start.bat`。第一次启动要下载约 5 GB，所有东西都放在这个文件夹里。下文要运行 `uv run …` 的地方，在 `terminal.bat` 打开的窗口里运行。详见 [Set up](docs/USAGE.md#set-up)（英文）。
+**最简单的办法：** 在 [Releases 页面](https://github.com/raindrops0/anime-voice-collector/releases/latest)下载 `anime-voice-collector-…-windows.zip`，解压到短一点的路径，比如 `D:\avoc`，双击 `start.bat`。第一次启动要下载约 5 GB，所有东西都放在这个文件夹里。下文要运行 `uv run …` 的地方，在 `terminal.bat` 打开的窗口里运行。详见 [安装](docs/guide/install.zh.md)。
 
 **用 git：** 还需要 [uv](https://docs.astral.sh/uv/)（它会自动装好合适的 Python）。还没装 uv 的话，打开 PowerShell 运行：
 
@@ -66,7 +66,7 @@ cd anime-voice-collector
 uv sync --locked
 ```
 
-另外还需要 [FFmpeg](https://ffmpeg.org/)。没有的话，界面的第一页可以一键帮你装好。想自己装的话，见 [Set up](docs/USAGE.md#set-up)（英文）。
+另外还需要 [FFmpeg](https://ffmpeg.org/)。没有的话，界面的第一页可以一键帮你装好。想自己装的话，见 [安装](docs/guide/install.zh.md)。
 
 ## 加第一集
 
@@ -97,7 +97,7 @@ uv run avoc app workspace
 | **角色** | `O` | 机器分给一个角色的全部台词，最没把握的排在前面。改掉错的，再用 `Shift+Enter` 确认其余的。下方是它可能漏掉的台词。 |
 | **导出** | `E` | 写出数据集。 |
 
-一个角色确认满 10 句、别人也标了几句「不是目标」以后，机器就开始猜。每标一句它都会马上重新学，别的台词就地换上新的猜测；列表本身要等你按「更新列表」（或勾上「自动」）才变，所以不会在你手底下乱动。`Z` 撤销上一步，撤销旁边的时钟按钮可以撤回更早的任意一步，`?` 列出所有按键，「指南」按钮讲四个视图各做什么。完整说明见 [docs/USAGE.md](docs/USAGE.md)（英文）。
+一个角色确认满 10 句、别人也标了几句「不是目标」以后，机器就开始猜。每标一句它都会马上重新学，别的台词就地换上新的猜测；列表本身要等你按「更新列表」（或勾上「自动」）才变，所以不会在你手底下乱动。`Z` 撤销上一步，撤销旁边的时钟按钮可以撤回更早的任意一步，`?` 列出所有按键，「指南」按钮讲四个视图各做什么。完整说明见 [第一份数据集](docs/guide/first-dataset.zh.md)。
 
 ## 得到什么
 
@@ -135,7 +135,7 @@ exports/2026-10-24/
 
 ## 文档
 
-工作原理、用到的说法，以及试过并已放弃的方案，见 [docs/index.md](docs/index.md)（英文）。想参与的话，见 [CONTRIBUTING.md](docs/CONTRIBUTING.md)（英文）。
+一步一步的指南见[安装](docs/guide/install.zh.md)和[第一份数据集](docs/guide/first-dataset.zh.md)；每个视图的功能、所有命令和用到的说法见 [docs/index.md](docs/index.md)（英文）。想参与的话，见 [CONTRIBUTING.md](docs/CONTRIBUTING.md)（英文）。
 
 ## 使用规则
 

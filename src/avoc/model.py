@@ -33,7 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from avoc.app.labels import OTHER
+from avoc.labels import OTHER
 
 STRENGTH = 100.0
 """Regularization strength, as scikit-learn's `C` of a two-choice logistic regression. The value
@@ -60,8 +60,8 @@ MIN_GUESS_LABELS = 10
 """The machine starts guessing a target character only once a person has confirmed this many of
 their lines (and labeled at least one other line as not them). Replaying the Teio labels of episodes
 1 and 2 and scoring on episode 3: with 10 of her lines the guesses were 94% right and found three
-quarters of her lines; with fewer they were barely better than calling everyone "Other". See
-docs/HOW_IT_WORKS.md#how-many-labels-before-the-guesses-are-good."""
+quarters of her lines; with fewer they were barely better than calling everyone "Other". To
+repeat it on a workspace, run scripts/replay_labels.py."""
 
 MIN_FAMILIAR_LABELS = 20
 """If there are fewer confirmed clips than this, no reliable bar can be measured. In that case the

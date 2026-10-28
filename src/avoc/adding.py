@@ -14,6 +14,7 @@ after a restart, and can be carried on with the same files.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -23,11 +24,14 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from functools import wraps
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from avoc.language import LANGUAGE, say
 from avoc.pipeline import PROGRESS_MARK
+from avoc.storage import connect
 
 KEEP_LINES = 200
 """How many of the latest output lines are kept for the page."""
@@ -94,13 +98,24 @@ def _remove(folder: Path) -> bool:
     return not folder.exists()
 
 
+def serial(method: Any) -> Any:
+    @wraps(method)
+    def run(self: Adding, *args: Any, **kwargs: Any) -> Any:
+        with self._start_lock:
+            return method(self, *args, **kwargs)
+
+    return run
+
+
 class Adding:
     def __init__(self, workspace: Path, on_done: Callable[[str], None]) -> None:
         self.workspace = workspace
         self.on_done = on_done
         """Called with the episode name after the command succeeds, before the page is told it is
         done. The server reloads the workspace here."""
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self._start_lock = threading.RLock()
+        self.job_id: str | None = None
         self.process: subprocess.Popen[str] | None = None
         self.episode: str | None = None
         self.lines: list[str] = []
@@ -177,6 +192,7 @@ class Adding:
         with self.lock:
             end = self.finished if self.state != "running" else time.time()
             return {
+                "id": self.job_id,
                 "state": self.state,
                 "episode": self.episode,
                 "cut": self.episode is not None and self._cut(self.episode),
@@ -187,6 +203,7 @@ class Adding:
                 "queue": [{"episode": n, "state": s} for n, s in self.queue.items()],
             }
 
+    @serial
     def start(
         self,
         video: Path,
@@ -196,13 +213,14 @@ class Adding:
         styles: list[str] | None = None,
         spoken: str | None = None,
         display_subtitles: Path | None = None,
+        job_id: str | None = None,
     ) -> dict[str, Any]:
         """Check what can be checked at once, then start `avoc add` in the background. Raises
         ValueError with a reason the person can act on. `styles` are the subtitle styles that hold
         the dialogue; None lets `avoc add` pick them. `spoken` is the language spoken; None lets
         it read the audio track's tag."""
         with self.lock:
-            if self.state == "running":
+            if self.state == "running" or (self.process is not None and not self.ended.is_set()):
                 raise ValueError(
                     say(
                         f"正在加 {self.episode}，等它做完再加下一集",
@@ -213,7 +231,9 @@ class Adding:
         with self.lock:
             if name not in self.queue:  # A single episode, not one from the queue.
                 self.queue = {}
-        self._remember(name, video, subtitles, offset, styles, spoken, display_subtitles)
+        self._remember(
+            name, video, subtitles, offset, styles, spoken, display_subtitles, job_id=job_id
+        )
         return self._launch(name, video, subtitles, offset, styles, spoken, display_subtitles)
 
     def _check(
@@ -286,6 +306,7 @@ class Adding:
         styles: list[str] | None,
         spoken: str | None,
         display_subtitles: Path | None,
+        job_id: str | None = None,
     ) -> None:
         def path(p: Path | None) -> str | None:
             return str(p.resolve()) if p is not None else None
@@ -298,9 +319,20 @@ class Adding:
                 "offset": offset,
                 "styles": styles,
                 "spoken": spoken,
+                "job": job_id or records.get(name, {}).get("job", uuid4().hex),
             }
 
         self._change_records(remember)
+        record = self._records()[name]
+        (self.workspace / "labels").mkdir(parents=True, exist_ok=True)
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            db.execute(
+                "INSERT OR IGNORE INTO jobs(id,kind,state,body) VALUES (?,'add','queued',?)",
+                (record["job"], json.dumps({"name": name, **record})),
+            )
+        finally:
+            db.close()
 
     def _launch(
         self,
@@ -333,6 +365,31 @@ class Adding:
             "_TYPER_STANDARD_TRACEBACK": "1",
             STOP_WITH_INTERFACE: str(os.getpid()),
         }
+        record = self._records()[name]
+        self.job_id = record["job"]
+        (self.workspace / "labels").mkdir(parents=True, exist_ok=True)
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            from avoc.jobs import alive
+
+            db.execute("BEGIN IMMEDIATE")
+            running = db.execute(
+                "SELECT pid FROM jobs WHERE kind='add' "
+                "AND state IN ('running','cancelling') AND id!=?",
+                (self.job_id,),
+            ).fetchall()
+            if any(alive(pid) for (pid,) in running):
+                raise ValueError("Another process is adding an episode to this workspace")
+            db.execute(
+                "INSERT OR IGNORE INTO jobs(id,kind,state,body) VALUES (?,'add','queued',?)",
+                (self.job_id, json.dumps({"name": name, **record})),
+            )
+            db.execute(
+                "UPDATE jobs SET state='running',pid=? WHERE id=?", (os.getpid(), self.job_id)
+            )
+            db.commit()
+        finally:
+            db.close()
         process = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
@@ -346,6 +403,15 @@ class Adding:
             start_new_session=sys.platform != "win32",
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
         )
+        (self.workspace / "labels").mkdir(parents=True, exist_ok=True)
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            db.execute(
+                "UPDATE jobs SET state='running',pid=?,error=NULL WHERE id=?",
+                (os.getpid(), self.job_id),
+            )
+        finally:
+            db.close()
         with self.lock:
             self.process, self.episode, self.lines, self.errors = process, name, [], []
             self.bar = ""
@@ -354,8 +420,23 @@ class Adding:
             self.all_ended.clear()
             if name in self.queue:
                 self.queue[name] = "running"
+        threading.Thread(
+            target=self._watch_cancel, args=(process, self.job_id), daemon=True
+        ).start()
         threading.Thread(target=self._follow, args=(process, name), daemon=True).start()
         return self.status()
+
+    def _watch_cancel(self, process: subprocess.Popen[str], job: str) -> None:
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            while process.poll() is None:
+                row = db.execute("SELECT state FROM jobs WHERE id=?", (job,)).fetchone()
+                if row and row[0] == "cancelling":
+                    self.stop()
+                    return
+                time.sleep(0.5)
+        finally:
+            db.close()
 
     def _follow(self, process: subprocess.Popen[str], name: str) -> None:
         """Collect the output until the command ends. Then reload the workspace whenever the
@@ -392,10 +473,27 @@ class Adding:
             self.finished = time.time()
             if name in self.queue:
                 self.queue[name] = self.state
+        (self.workspace / "labels").mkdir(parents=True, exist_ok=True)
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            if code == 0 and not stopped:
+                db.execute("UPDATE state SET revision=revision+1 WHERE singleton=1")
+            db.execute(
+                "UPDATE jobs SET state=?,result=?,error=? WHERE id=?",
+                (
+                    self.state,
+                    json.dumps({"episode": name}),
+                    "\n".join(self.errors) if code else None,
+                    self.job_id,
+                ),
+            )
+        finally:
+            db.close()
         self.ended.set()
         # A failed episode does not hold up the rest; it stays listed to be carried on.
         self._next()
 
+    @serial
     def enqueue(
         self,
         episodes: list[dict[str, Any]],
@@ -444,6 +542,7 @@ class Adding:
             )  # fmt: skip
         return self._queue(names)
 
+    @serial
     def carry_on_all(self, names: list[str]) -> dict[str, Any]:
         """Queue unfinished episodes again, with the files each was started with."""
         from avoc.project import validate_name
@@ -460,6 +559,7 @@ class Adding:
                 )
         return self._queue(names)
 
+    @serial
     def _queue(self, names: list[str]) -> dict[str, Any]:
         with self.lock:
             fresh = self.state != "running" and not self.waiting
@@ -473,6 +573,7 @@ class Adding:
             self._next()
         return self.status()
 
+    @serial
     def _next(self) -> None:
         """Start the next waiting episode. One that cannot start (its file was moved, say) is
         marked failed with the reason, and the one after it is tried."""
@@ -483,6 +584,18 @@ class Adding:
                         self.all_ended.set()
                     return
                 name = self.waiting.pop(0)
+            record = self._records().get(name, {})
+            db = connect(self.workspace / "labels" / "workspace.sqlite3")
+            try:
+                saved = db.execute(
+                    "SELECT state FROM jobs WHERE id=?", (record.get("job"),)
+                ).fetchone()
+            finally:
+                db.close()
+            if saved and saved[0] == "stopped":
+                with self.lock:
+                    self.queue[name] = "stopped"
+                continue
             try:
                 self.carry_on(name)
                 return
@@ -516,9 +629,19 @@ class Adding:
                 return self.status()
             self.state = "stopped"
             # The rest of the queue stops too; each stays listed to be carried on.
+            waiting = list(self.waiting)
             for name in self.waiting:
                 self.queue[name] = "stopped"
             self.waiting = []
+        records = self._records()
+        db = connect(self.workspace / "labels" / "workspace.sqlite3")
+        try:
+            db.executemany(
+                "UPDATE jobs SET state='stopped' WHERE id=? AND state='queued'",
+                [(records.get(n, {}).get("job"),) for n in waiting],
+            )
+        finally:
+            db.close()
         if sys.platform == "win32":
             # /T also ends the FFmpeg it started.
             subprocess.run(

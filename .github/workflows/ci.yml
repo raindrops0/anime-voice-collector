@@ -30,6 +30,9 @@ jobs:
       - name: Type check
         run: uvx ty@0.0.91 check src
 
+      - name: Shared web types match the server
+        run: uv run python scripts/generate_contracts.py --check
+
       - name: Test
         run: uv run pytest
 

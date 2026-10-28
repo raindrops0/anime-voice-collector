@@ -93,6 +93,33 @@ def server_on(port: int, timeout: float = 1.0) -> dict[str, Any] | None:
     return None
 
 
+def wait_until_ready(port: int, timeout: float = 300.0, every: float = 0.2) -> bool:
+    """Wait until the avoc app on `port` answers, so the browser is not opened on a page that
+    cannot connect while the server still loads the workspace. False if it has not answered after
+    `timeout` seconds."""
+    import time
+
+    end = time.monotonic() + timeout
+    while server_on(port, timeout=every) is None:
+        if time.monotonic() >= end:
+            return False
+        time.sleep(every)
+    return True
+
+
+def open_when_ready(port: int, timeout: float = 300.0) -> None:
+    """Open the app's page in the browser once the server on `port` answers, without holding up
+    the caller, which goes on to start the server."""
+    import threading
+    import webbrowser
+
+    def open_page() -> None:
+        if wait_until_ready(port, timeout):
+            webbrowser.open(f"http://127.0.0.1:{port}/")
+
+    threading.Thread(target=open_page, daemon=True).start()
+
+
 def choose_port(workspace: Path, first: int, fixed: bool) -> Choice | None:
     """Where to serve `workspace`. If it is already open on one of the tried ports, that port with
     running=True. Otherwise the first free port from `first`. With `fixed` (the port was given on

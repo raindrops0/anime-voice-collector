@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from avoc.app.batch import episode_number, pair
+from avoc.batch import episode_number, pair
 
 
 @pytest.mark.parametrize(

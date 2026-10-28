@@ -8,8 +8,8 @@ import { stamp } from "../src/format";
    It needs avoc running on a workspace made from the 3-minute test episode (2:00 to 5:00 of episode 1 of
    Uma Musume: Pretty Derby, season 2), with no labels yet. The lines named below are picked for that episode:
    the group numbers and times would differ on any other. Everything is undone first, so it can run again; but the
-   history panel then lists every earlier run, so for a clean recording stop avoc, move labels/events.jsonl,
-   labels/cast.json and labels/avatars/ out of the workspace (keep purpose.json), and start it again.
+   history panel then lists every earlier run, so for a clean recording stop avoc, move the labels/ folder out of the workspace
+   and put its purpose.json back into a new labels/ folder (keep purpose.json), and start it again.
 
      npx playwright test -c demo/playwright.config.ts            (in web/; DEMO_LANG=zh for Chinese)
 

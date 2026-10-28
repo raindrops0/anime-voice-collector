@@ -121,7 +121,7 @@ def add(
     # When the interface runs this command, it asks for our own lines to be marked, so it can
     # tell them apart from what the libraries print.
     mark = pipeline.PROGRESS_MARK if os.environ.get("AVOC_MARK_PROGRESS") else ""
-    from avoc.app.adding import STOP_WITH_INTERFACE, stop_with_interface
+    from avoc.adding import STOP_WITH_INTERFACE, stop_with_interface
 
     if os.environ.get(STOP_WITH_INTERFACE, "").isdigit():
         stop_with_interface(int(os.environ[STOP_WITH_INTERFACE]))
@@ -237,8 +237,7 @@ def quality_features(
     """Compute the features of the "low quality" hint for episodes that lack them, such as episodes
     added before the hint existed. `add` does this for new episodes."""
     from avoc import quality
-    from avoc.app.workspace import episode_dirs
-    from avoc.project import resolve_device
+    from avoc.project import episode_dirs, resolve_device
 
     device = resolve_device(device)
     for directory in episode_dirs(workspace):
@@ -367,7 +366,13 @@ def run_app(
 
     import uvicorn
 
-    from avoc.app.ports import DEFAULT_PORT, TRIED_PORTS, choose_port, note_start
+    from avoc.app.ports import (
+        DEFAULT_PORT,
+        TRIED_PORTS,
+        choose_port,
+        note_start,
+        open_when_ready,
+    )
     from avoc.app.server import (
         RELOAD_DEVICE,
         RELOAD_MODELS,
@@ -375,7 +380,7 @@ def run_app(
         AppState,
         create_app,
     )
-    from avoc.app.workspace import DEFAULT_MODELS
+    from avoc.workspace import DEFAULT_MODELS
 
     choice = choose_port(workspace, DEFAULT_PORT if port is None else port, fixed=port is not None)
     if choice is None:
@@ -423,9 +428,7 @@ def run_app(
         url = f"http://127.0.0.1:{port}/"
         typer.echo(f"Open {url} (restarts when avoc's Python files change)")
         if open_browser:
-            import threading
-
-            threading.Timer(4.0, webbrowser.open, args=[url]).start()
+            open_when_ready(port)
         # Not uvicorn's own reload: on Windows it stops the old server with Ctrl+C, which never
         # arrives when the server has no console window of its own, so it never restarted.
         # watchfiles ends the old process outright and starts a new one.
@@ -458,9 +461,73 @@ def run_app(
     url = f"http://127.0.0.1:{port}/"
     typer.echo(f"Open {url}")
     if open_browser:
-        import threading
-
-        # Wait for the server to start before opening the browser, otherwise the first view is a
-        # page that cannot connect.
-        threading.Timer(1.0, webbrowser.open, args=[url]).start()
+        open_when_ready(port)
     uvicorn.run(create_app(state), host="127.0.0.1", port=port, log_level="warning")
+
+
+@app.command("workspace")
+def workspace_command(
+    workspace: Annotated[Path, typer.Argument(help="Workspace folder")],
+    operation: Annotated[
+        str,
+        typer.Argument(
+            help="Read data, submit suggestions, add episodes, export, or edit confirmed labels"
+        ),
+    ],
+    input_file: Annotated[
+        Path | None, typer.Option("--input", help="A UTF-8 JSON file with the operation fields")
+    ] = None,
+    request_id: Annotated[
+        str | None, typer.Option(help="Keep this ID when retrying the same request")
+    ] = None,
+    expected_revision: Annotated[
+        int | None, typer.Option(help="The revision read before making changes")
+    ] = None,
+    confirmed: Annotated[
+        bool, typer.Option(help="A person has checked this label or character change")
+    ] = False,
+) -> None:
+    """Read and update a workspace with JSON input and output, without opening a browser."""
+    import json
+    from uuid import uuid4
+
+    from avoc.agent import query
+    from avoc.labels import ConflictError
+    from avoc.service import WorkspaceService
+
+    try:
+        fields = json.loads(input_file.read_text(encoding="utf-8")) if input_file else {}
+        if not isinstance(fields, dict):
+            raise ValueError("The input must be a JSON object")
+        state = WorkspaceService(workspace)
+        if operation in {"state", "clips", "clip", "suggestions", "jobs"}:
+            result = query(state, operation, **fields)
+        elif operation in {"cancel", "resume"}:
+            result = getattr(state.jobs, operation)(fields["id"])
+        else:
+            if (
+                operation in {"label", "changes", "role", "undo", "revert", "accept"}
+                and not confirmed
+            ):
+                raise ValueError("A person must check this change and pass --confirmed")
+            result = state.operations.execute(
+                operation,
+                fields,
+                request_id=request_id or uuid4().hex,
+                expected_revision=expected_revision,
+            )
+        typer.echo(json.dumps(result, ensure_ascii=False))
+    except (ValueError, KeyError) as exc:
+        typer.echo(
+            json.dumps(
+                {
+                    "code": "revision_conflict"
+                    if isinstance(exc, ConflictError)
+                    else "invalid_request",
+                    "detail": str(exc),
+                },
+                ensure_ascii=False,
+            ),
+            err=True,
+        )
+        raise typer.Exit(1) from exc

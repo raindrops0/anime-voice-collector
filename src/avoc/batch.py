@@ -41,7 +41,7 @@ def episode_number(file_name: str) -> int | None:
 
 def files_in(text: str, suffixes: set[str], what: str) -> list[Path]:
     """The files of one kind in a folder. A file picked in the folder stands for its folder."""
-    from avoc.app.adding import clean_path
+    from avoc.adding import clean_path
 
     path = clean_path(text)
     folder = path.parent if path.is_file() else path

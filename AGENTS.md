@@ -4,7 +4,7 @@ Collects an anime character's lines, one character at a time. For the project ov
 
 ## Before you start
 
-Read `docs/DECISIONS.md`: approaches that are settled and approaches that were ruled out. **Do not reopen a ruled-out path.** To overturn one, bring new data first.
+When `private/docs/DECISIONS.md` is available, read it before changing an approach. **Do not reopen a ruled-out path** without new data. Private implementation notes and experiments are indexed in `private/docs/index.md`; keep them out of public docs. A public checkout does not need these files.
 
 Other docs are found through `docs/index.md`. That page also says what each doc covers and what it does not, and how to maintain them. **One fact is written in one place only. Elsewhere, only a link.**
 

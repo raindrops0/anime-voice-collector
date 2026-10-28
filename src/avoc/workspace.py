@@ -19,21 +19,19 @@ from pathlib import Path
 from typing import Any
 
 from avoc import quality
+from avoc.embeddings.cache import load_embeddings
 from avoc.language import Words
-from avoc.pipeline import load_embeddings
+from avoc.project import episode_dirs as episode_dirs
 from avoc.project import load_episode
+from avoc.settings import DEFAULT_MODELS as DEFAULT_MODELS
+from avoc.settings import GROUPING_MODEL as GROUPING_MODEL
+from avoc.stages.subtitle import subtitle_lines as subtitle_lines
 from avoc.stages.text_subtitle import TextLine
+from avoc.stages.text_subtitle import text_for as text_for
 
 SCENE_GAP = 3.0
 """If the pause between two lines of dialogue is longer than this many seconds, a new scene starts.
 This is only used to split the dialogue for display. It does not affect identifying anyone."""
-
-DEFAULT_MODELS = ("anime-va", "anime-char", "redimnet2-b6")
-"""The three voiceprints work best together."""
-
-GROUPING_MODEL = "anime-va"
-"""The Groups view uses only this one model. Its threshold of 0.70 was measured. The joined
-voiceprint was not measured."""
 
 SKIP_SECONDS = 1.0
 """Clips shorter than this many seconds are of little use for training speech synthesis, so by
@@ -199,40 +197,6 @@ class Workspace:
         return self.root / "labels"
 
 
-def episode_dirs(root: Path) -> list[Path]:
-    folder = root / "episodes"
-    if not folder.is_dir():
-        return []
-    return sorted(p for p in folder.iterdir() if (p / "episode.json").exists())
-
-
-MIN_TEXT_OVERLAP = 0.5
-"""The overlap between a clip and a subtitle line must be at least this share of the shorter of the
-two. Only then does the line count as the clip's dialogue.
-
-Times are not matched exactly. In episodes 1 and 2, some clips were cut early by speech detection,
-so their edges do not line up with subtitle lines."""
-
-
-def subtitle_lines(episode: dict[str, Any]) -> list[tuple[float, float, str]]:
-    """The subtitle lines for this episode, with the offset already added and converted to
-    audio-track time. They come from the styles recorded when the episode was cut. Episodes cut
-    before styles were recorded pick them again, which gives the same lines."""
-    from avoc.stages.subtitle import episode_parts, load_dialogue, offset_at
-    from avoc.stages.text_subtitle import turn_lines
-
-    path = Path(episode.get("subtitles") or "")
-    if not path.is_file():
-        return []
-    parts = episode_parts(episode)
-    styles = episode.get("subtitle_styles")
-    if episode.get("segmentation") == "speaker_turns":
-        timed = [(x.start, x.end, x.text) for x in turn_lines(path, styles)]
-    else:
-        timed = [(d["start"], d["end"], d["text"]) for d in load_dialogue(path, styles)]
-    return [(a + offset_at(parts, a), b + offset_at(parts, a), text) for a, b, text in timed]
-
-
 def display_lines(episode: dict[str, Any]) -> list[tuple[float, float, str]]:
     """The lines of the display subtitles (see `attach_display_subtitles` in pipeline.py), in
     audio-track time. Empty when there are none or the file is gone."""
@@ -251,23 +215,6 @@ def display_lines(episode: dict[str, Any]) -> list[tuple[float, float, str]]:
         )
         for d in lines
     ]
-
-
-def text_for(
-    lines: list[tuple[float, float, str]], starts: list[float], start: float, end: float
-) -> str:
-    """The subtitle lines that overlap this time span enough. When a bilingual subtitle has
-    several lines at the same time, they are joined with slashes."""
-    found: list[str] = []
-    at = bisect.bisect_left(starts, start - 20.0)
-    for low, high, text in lines[at:]:
-        if low >= end:
-            break
-        shared = min(high, end) - max(low, start)
-        shorter = min(high - low, end - start)
-        if shorter > 0 and shared >= MIN_TEXT_OVERLAP * shorter and text not in found:
-            found.append(text)
-    return " / ".join(found)
 
 
 def syllables_of(

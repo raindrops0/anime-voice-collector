@@ -79,7 +79,7 @@ def test_episodes_cut_before_parts_have_one() -> None:
 
 
 def test_text_lines_take_each_part_offset(tmp_path) -> None:
-    from avoc.app.workspace import subtitle_lines
+    from avoc.workspace import subtitle_lines
 
     path = tmp_path / "ep.srt"
     path.write_text(

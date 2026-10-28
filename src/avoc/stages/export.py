@@ -16,6 +16,8 @@ scaled back down. It is better for one clip to be slightly off in loudness than 
 
 from __future__ import annotations
 
+import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -83,6 +85,8 @@ def export(
     assigned: dict[str, list[Any]],
     vocals: dict[str, Path],
     out_dir: Path,
+    folders: dict[str, str] | None = None,
+    cancelled: Any = None,
 ) -> list[Written]:
     """Cut the clips of each assigned group and write them as wav files. `vocals` maps "episode name
     -> that episode's original-sample-rate vocal track".
@@ -96,7 +100,9 @@ def export(
     if not any(assigned.values()):
         raise ValueError("There are no clips to export")
     infos = {}
-    for episode, path in vocals.items():
+    used = {clip.episode for clips in assigned.values() for clip in clips}
+    for episode in used:
+        path = vocals[episode]
         infos[episode] = sf.info(str(path))
         rate = infos[episode].samplerate
         if rate < MIN_SAMPLE_RATE:
@@ -118,9 +124,16 @@ def export(
 
     written: list[Written] = []
     for name, clips in assigned.items():
-        folder = out_dir / name
+        # Display names are never paths. A suffix keeps names distinct on Windows too.
+        stem = re.sub(r"[^\w-]+", "_", name, flags=re.UNICODE).strip("_")[:60] or "character"
+        suffix = hashlib.sha256(name.encode()).hexdigest()[:12]
+        folder = out_dir / (folders[name] if folders else f"{stem}-{suffix}")
+        if not folder.resolve().is_relative_to(out_dir.resolve()):
+            raise ValueError("A character folder must stay inside the export folder")
         folder.mkdir(parents=True, exist_ok=True)
         for clip in clips:
+            if cancelled is not None and cancelled():
+                raise InterruptedError("Export stopped")
             path = vocals[clip.episode]
             info = sf.info(str(path))
             data, rate = sf.read(

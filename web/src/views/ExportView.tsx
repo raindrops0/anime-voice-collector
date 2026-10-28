@@ -1,3 +1,4 @@
+import { useExportJob } from "../useExportJob";
 import { useEffect, useRef, useState } from "react";
 import { call, type ExportResult, type Summary } from "../api";
 import { cn } from "cn";
@@ -131,7 +132,6 @@ export function ExportView({
   /* The default folder now in the box. After an export it moves on to the next free one, unless the person typed
      or picked their own. */
   const [suggested, setSuggested] = useState(state.export_folder);
-  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ExportResult | null>(null);
   /* The result appears below the button, often off screen; bring it into view. */
   const resultBox = useRef<HTMLDivElement>(null);
@@ -144,25 +144,25 @@ export function ExportView({
     else next.add(name);
     setPicked(next);
   };
-  const run = async () => {
-    setBusy(true);
-    setResult(null);
-    try {
-      const done = await call<ExportResult>("/api/export", {
-        roles: [...picked],
-        include_auto: includeAuto,
-        form,
-        out,
-      });
+  const job = useExportJob(
+    state.workspace,
+    (done) => {
       setResult(done);
       if (out === suggested) {
         setOut(done.next);
         setSuggested(done.next);
       }
+    },
+    (message) => toast(message, true),
+  );
+  const busy = job.busy;
+  const run = async () => {
+    setResult(null);
+    try {
+      await job.start({ roles: [...picked], include_auto: includeAuto, form, out }, state.revision);
     } catch (e) {
       toast((e as Error).message, true);
     }
-    setBusy(false);
   };
   const forms: [Form, string][] = [
     ["folder", tr("只要声音（RVC 等）", "Sound only (RVC and such)")],
@@ -269,12 +269,22 @@ export function ExportView({
           )}
         </Note>
       </Section>
-      <div>
+      <div className="flex gap-2">
         <Button disabled={busy || picked.size === 0} onClick={run}>
           {busy
             ? tr("正在导出…", "Exporting…")
             : tr(`导出 ${picked.size} 个角色`, `Export ${many(picked.size, "character")}`)}
         </Button>
+        {job.hasJob && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              (busy ? job.cancel() : job.resume()).catch((e: Error) => toast(e.message, true))
+            }
+          >
+            {busy ? tr("停止导出", "Stop export") : tr("接着导出", "Resume export")}
+          </Button>
+        )}
       </div>
       {result && (
         <div className="rounded-xl bg-success/10 px-3.5 py-3" ref={resultBox}>

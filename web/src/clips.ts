@@ -163,8 +163,25 @@ export const skippedOf = (clips: Clip[]) =>
   clips.filter((c) => c.label === IGNORED || (!c.label && c.short));
 
 /* Maybe missed: not given to this character, but with a fair chance of being them. The server already sorted
-   them most likely first; they are not re-sorted after retraining, so the list doesn't jump under your hand. */
+   them most likely first; they are re-sorted only when the list is updated, so it doesn't jump under your hand. */
 export const maybeListOf = (clips: Clip[]) => clips.filter((c) => c.maybe);
+
+/* The lines that join or leave Maybe missed when the server's newest list of them, `missed`, replaces the list's. */
+export const missedChanges = (clips: Clip[], missed: Clip[]) => {
+  const now = new Set(maybeListOf(clips).map((c) => c.id));
+  const next = new Set(missed.map((c) => c.id));
+  return [...[...now].filter((id) => !next.has(id)), ...[...next].filter((id) => !now.has(id))];
+};
+
+/* The list with the server's newest Maybe missed lines in place of its own, most likely first: a line no longer
+   missed stays only if it belongs to the list some other way, which the caller checks. */
+export const withMissed = (clips: Clip[], missed: Clip[]) => {
+  const next = new Set(missed.map((c) => c.id));
+  const rest = clips
+    .filter((c) => !next.has(c.id))
+    .map((c) => (c.maybe ? { ...c, maybe: false } : c));
+  return [...rest, ...missed];
+};
 
 /* Confirmed lines in the server's order: by time for a target, most like some target first for "other". */
 export const confirmedOf = (clips: Clip[], role: string | null) =>

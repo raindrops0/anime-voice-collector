@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -133,3 +134,21 @@ def cache_signature(directory: Path, model: str) -> dict[str, str]:
 def cache_dir(directory: Path, model: str) -> Path:
     validate_name(model)
     return directory / "embeddings" / model
+
+
+def episode_dirs(root: Path) -> list[Path]:
+    folder = root / "episodes"
+    if not folder.is_dir():
+        return []
+    return sorted(p for p in folder.iterdir() if (p / "episode.json").exists())
+
+
+def free_export_folder(root: Path) -> Path:
+    """Where an export goes unless the person picks another folder: exports/<today> in the
+    workspace, or <today>-2 and so on when that one already holds an export."""
+    base = root.resolve() / "exports" / time.strftime("%Y-%m-%d")
+    folder, number = base, 1
+    while folder.exists() and any(folder.iterdir()):
+        number += 1
+        folder = base.with_name(f"{base.name}-{number}")
+    return folder

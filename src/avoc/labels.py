@@ -1,10 +1,10 @@
-"""Human labels in a workspace: an append-only event log, plus a character list.
+"""Human labels, characters and their history, saved together in a database.
 
-**Why append-only.** Each action is written as one line that records the state before and after
-the change. Old lines are never edited. This way any step can be undone, and the full set of labels
-at any moment can be replayed. If the power fails while writing, at most the last line is lost.
+**Why append-only.** Each action is saved as one record that records the state before and after
+the change. Old records are never edited. Any step can be undone, and the full set of labels
+at any moment can be replayed. A change is either saved in full or left out in full.
 
-One line is one batch of changes (`batch`). Naming a whole group, or confirming the rest in one
+One record is one batch of changes (`batch`). Naming a whole group, or confirming the rest in one
 click, is one batch, and undo takes back a whole batch at once.
 An undo is also a batch. It records which batches it takes back (`undo_of`), and it can itself be
 taken back, which puts them back. Any batch still in effect can be taken back, not only the
@@ -22,15 +22,20 @@ the character back loses nothing.
 
 from __future__ import annotations
 
+import copy
 import json
 import threading
 from collections import Counter
+from contextlib import contextmanager
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from avoc.language import Words, say
-from avoc.project import read_json, write_json
+from avoc.project import read_json
+from avoc.storage import connect, legacy_batches
 
 PALETTE = (
     "#7F77DD",
@@ -126,47 +131,173 @@ def cast_steps(batch: dict[str, Any]) -> list[dict[str, Any]]:
     return [*cast.get("steps", ()), *([rest] if rest else [])]
 
 
+def atomic(method: Any) -> Any:
+    """Keep nested store operations in one database transaction."""
+
+    @wraps(method)
+    def run(self: LabelStore, *args: Any, **kwargs: Any) -> Any:
+        with self.transaction():
+            return method(self, *args, **kwargs)
+
+    return run
+
+
+class ConflictError(ValueError):
+    """The caller used an older revision or reused a request ID for another action."""
+
+
 class LabelStore:
-    """Reads and writes one workspace's labels and character list. Every change goes through
-    `apply`. It is thread-safe."""
+    """Labels, characters and history saved together in labels/workspace.sqlite3."""
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder
+        self.path = folder / "workspace.sqlite3"
         self.events_path = folder / "events.jsonl"
         self.cast_path = folder / "cast.json"
+        self._lock = threading.RLock()
+        self._db: Any = None
+        self._depth = 0
+        self._version = -1
+        self._before: Any = None
+        self._dirty = False
+        self._clear()
+        folder.mkdir(parents=True, exist_ok=True)
+        db = connect(self.path)
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM state").fetchone() is None:
+                self.roles = (
+                    list(read_json(self.cast_path)["roles"]) if self.cast_path.exists() else []
+                )
+                for index, role in enumerate(self.roles):
+                    role.setdefault("named", True)
+                    role.setdefault("pattern", index)
+                    role.setdefault("target", True)
+                    role.setdefault("id", uuid4().hex)
+                self.batches = legacy_batches(self.events_path)
+                for batch in self.batches:
+                    self._replay(batch)
+                missing = {n for n in self.labels.values() if n not in SPECIAL and not self.role(n)}
+                for name in sorted(missing):
+                    self._ensure_role(name, save=False)
+                db.execute("INSERT INTO state VALUES (1, 0, ?)", (json.dumps(self.roles),))
+                db.executemany(
+                    "INSERT INTO batches VALUES (?, ?)",
+                    [(b["batch"], json.dumps(b)) for b in self.batches],
+                )
+            db.commit()
+            self._load(db)
+        except BaseException:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def _clear(self) -> None:
         self.labels: dict[str, str] = {}
         self.against: dict[str, set[str]] = {}
-        """Clips labeled "other", and which target characters existed when they were labeled."""
         self.rejects: dict[str, set[str]] = {}
         self.flags: dict[str, set[str]] = {flag: set() for flag in FLAGS}
-        """Clips where each switch is on. See `FLAGS`."""
         self.unusable = self.flags["unusable"]
         self.batches: list[dict[str, Any]] = []
         self.roles: list[dict[str, Any]] = []
-        self._lock = threading.RLock()
-        folder.mkdir(parents=True, exist_ok=True)
-        if self.cast_path.exists():
-            self.roles = list(read_json(self.cast_path)["roles"])
-        # Early character lists did not have these fields. Back then every name was typed by a
-        # person, so each one must be checked. Pattern numbers are filled in list order.
-        for index, role in enumerate(self.roles):
-            role.setdefault("named", True)
-            role.setdefault("pattern", index)
-            role.setdefault("target", True)
-        if self.events_path.exists():
-            for line in self.events_path.read_text(encoding="utf-8").splitlines():
-                if line.strip():
-                    batch = json.loads(line)
-                    self._replay(batch)
-                    self.batches.append(batch)
-        # The character list is the source of truth in cast.json. When replaying history, do not
-        # create characters, or old names that were later renamed would come back.
-        # Only names that still have clips but are missing from the list get added.
-        missing = {n for n in self.labels.values() if n not in SPECIAL and not self.role(n)}
-        for name in sorted(missing):
-            self._ensure_role(name, save=False)
-        if missing:
-            self._save_cast()
+
+    def _load(self, db: Any) -> None:
+        version, roles = db.execute(
+            "SELECT revision, roles FROM state WHERE singleton = 1"
+        ).fetchone()
+        if version == self._version:
+            return
+        self._clear()
+        self.roles = json.loads(roles)
+        self.batches = [
+            json.loads(row[0]) for row in db.execute("SELECT body FROM batches ORDER BY number")
+        ]
+        for batch in self.batches:
+            self._replay(batch)
+        self._version = version
+
+    def refresh(self) -> bool:
+        """Read changes made by another process before returning workspace data."""
+        with self._lock:
+            if self._depth:
+                return False
+            db = connect(self.path)
+            try:
+                db.execute("BEGIN")
+                previous = self._version
+                self._load(db)
+                return previous != self._version
+            finally:
+                db.close()
+
+    @property
+    def revision(self) -> int:
+        changed = self._dirty or (
+            self._before is not None and (self.roles, self.batches) != self._before
+        )
+        return self._version + int(changed)
+
+    @contextmanager
+    def transaction(self, expected_revision: int | None = None) -> Any:
+        with self._lock:
+            if self._depth:
+                if expected_revision is not None and expected_revision != self.revision:
+                    raise ConflictError(
+                        "The workspace changed; read it again before making changes"
+                    )
+                yield
+                return
+            db = connect(self.path)
+            try:
+                db.execute("BEGIN IMMEDIATE")
+                self._load(db)
+                if expected_revision is not None and expected_revision != self._version:
+                    raise ConflictError(
+                        "The workspace changed; read it again before making changes"
+                    )
+                self._db, self._depth = db, 1
+                self._before = copy.deepcopy((self.roles, self.batches))
+                self._dirty = False
+                yield
+                version = self.revision
+                if version != self._version:
+                    count = len(self._before[1])
+                    db.executemany(
+                        "INSERT INTO batches VALUES (?, ?)",
+                        [(b["batch"], json.dumps(b)) for b in self.batches[count:]],
+                    )
+                    db.execute(
+                        "UPDATE state SET revision = ?, roles = ? WHERE singleton = 1",
+                        (version, json.dumps(self.roles)),
+                    )
+                db.commit()
+                self._version = version
+            except BaseException:
+                db.rollback()
+                self._version = -1
+                db.execute("BEGIN")
+                self._load(db)
+                raise
+            finally:
+                self._db, self._depth, self._before = None, 0, None
+                self._dirty = False
+                db.close()
+
+    def saved_request(self, request_id: str, fingerprint: str) -> dict[str, Any] | None:
+        row = self._db.execute(
+            "SELECT fingerprint, result FROM requests WHERE id = ?", (request_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ConflictError("This request ID was already used for another action")
+        return json.loads(row[1])
+
+    def remember_request(self, request_id: str, fingerprint: str, result: Any) -> None:
+        self._db.execute(
+            "INSERT INTO requests VALUES (?, ?, ?)", (request_id, fingerprint, json.dumps(result))
+        )
 
     # Reading
 
@@ -207,9 +338,12 @@ class LabelStore:
         return out
 
     def floor(self) -> int:
-        """The last imported batch. It and every batch before it cannot be taken back: an import
-        sets many labels at once from elsewhere."""
-        imports = (b["batch"] for b in self.batches if b["source"].startswith("import"))
+        """History through an import or an older undo whose target is unknown cannot be undone."""
+        imports = (
+            b["batch"]
+            for b in self.batches
+            if b["source"].startswith("import") or b.get("legacy", {}).get("unresolved_undo")
+        )
         return max(imports, default=0)
 
     def history(self, limit: int = 50, before: int | None = None) -> list[dict[str, Any]]:
@@ -241,6 +375,7 @@ class LabelStore:
 
     # Writing
 
+    @atomic
     def apply(
         self,
         changes: list[dict[str, Any]],
@@ -316,18 +451,18 @@ class LabelStore:
             }
             if created or cast:
                 batch["cast"] = {**(cast or {}), **({"created": created} if created else {})}
-            with self.events_path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(batch, ensure_ascii=False) + "\n")
             self._replay(batch)
             self.batches.append(batch)
             return batch
 
+    @atomic
     def undo(self) -> dict[str, Any] | None:
         """Take back what Z takes back (see `undo_target`)."""
         with self._lock:
             target = self.undo_target()
             return None if target is None else self.revert([target], source="undo")[0]
 
+    @atomic
     def revert(
         self, ids: list[int], source: str = "revert"
     ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
@@ -380,6 +515,7 @@ class LabelStore:
             )
             return new, report
 
+    @atomic
     def update_role(self, name: str, **fields: Any) -> dict[str, Any]:
         """Change the color, the avatar, or whether this is a target character. To rename, use
         `rename_role`.
@@ -395,6 +531,7 @@ class LabelStore:
             self._save_cast()
             return role
 
+    @atomic
     def new_role(self) -> str:
         """Make a character that has no name yet, and return its temporary name. Labels for it must
         be written next with `apply`, and `cast` must include `{"unnamed": [name]}`. Only then does
@@ -407,6 +544,7 @@ class LabelStore:
             self._ensure_role(name, named=False)
             return name
 
+    @atomic
     def rename_role(self, old: str, new: str) -> dict[str, Any] | None:
         """Rename, which is also how a name is given. If the new name already exists, this merges
         the two characters, so their clips are joined together."""
@@ -471,6 +609,15 @@ class LabelStore:
         """Why this batch cannot be taken back, or None when it can. Whether the names it needs
         are free is only known when taking it back; see `_clash`."""
         if batch["batch"] <= floor:
+            if any(
+                b["batch"] >= batch["batch"] and b.get("legacy", {}).get("unresolved_undo")
+                for b in self.batches
+            ):
+                return say(
+                    "旧记录里有编号重复的撤销，无法确定对应哪一步；这之前的操作不能撤销",
+                    "an old undo has a repeated number with no clear target; "
+                    "steps before it cannot be taken back",
+                )
             return say(
                 "导入的标签，以及导入之前的操作，不能撤销",
                 "imported labels, and the steps before them, cannot be taken back",
@@ -599,6 +746,7 @@ class LabelStore:
             pattern = max((int(r["pattern"]) for r in self.roles), default=-1) + 1
             self.roles.append(
                 {
+                    "id": uuid4().hex,
                     "name": name,
                     "named": named,
                     "color": PALETTE[pattern % len(PALETTE)],
@@ -611,7 +759,12 @@ class LabelStore:
                 self._save_cast()
 
     def _save_cast(self) -> None:
-        write_json(self.cast_path, {"schema": "cast.v1", "roles": self.roles})
+        # The outer transaction saves the character list with its label records.
+        for role in self.roles:
+            if "id" not in role:
+                from uuid import NAMESPACE_URL, uuid5
+
+                role["id"] = uuid5(NAMESPACE_URL, f"{self.folder.resolve()}:{role['pattern']}").hex
 
 
 class _Pending:

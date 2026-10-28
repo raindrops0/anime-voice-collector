@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from avoc.app.adding import Adding, clean_path
+from avoc.adding import Adding, clean_path
 
 FAKE_ADD = """
 import json, sys, time
@@ -37,7 +37,7 @@ print("\\x1fdone", flush=True)
 
 @pytest.fixture
 def files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setattr("avoc.app.adding.shutil.which", lambda _: "found")
+    monkeypatch.setattr("avoc.adding.shutil.which", lambda _: "found")
     (tmp_path / "fake_add.py").write_text(FAKE_ADD, encoding="utf-8")
     for name in ("good.mkv", "good2.mkv", "slow.mkv", "bad.mkv", "notes.ass"):
         (tmp_path / name).write_text("x", encoding="utf-8")
@@ -149,7 +149,7 @@ def test_add_stops_by_itself_when_the_server_goes(tmp_path: Path) -> None:
     script = tmp_path / "child.py"
     script.write_text(
         "import sys, time\n"
-        "from avoc.app.adding import stop_with_interface\n"
+        "from avoc.adding import stop_with_interface\n"
         f"stop_with_interface({server.pid})\n"
         "import numpy\n"
         "print('ready', flush=True)\n"
@@ -262,6 +262,8 @@ def test_every_problem_is_given_before_any_episode_starts(
 
 
 def test_stopping_a_queue_keeps_the_rest_listed_after_a_restart(files: Path) -> None:
+    from avoc.jobs import Jobs
+
     job = adding(files, [])
     job.enqueue([episode(files, "a", "slow.mkv"), episode(files, "b", "good.mkv")], offset=0)
     for _ in range(100):
@@ -270,11 +272,14 @@ def test_stopping_a_queue_keeps_the_rest_listed_after_a_restart(files: Path) -> 
         time.sleep(0.1)
     # Waiting episodes are not unfinished: they are on their way.
     assert job.not_cut() == []
+    saved = Jobs(files / "work/labels/workspace.sqlite3")
+    assert sorted(j["state"] for j in saved.all()) == ["queued", "running"]
     with pytest.raises(ValueError, match="b: already queued"):
         job.enqueue([episode(files, "b", "good.mkv")], offset=0)
     stopped = job.stop()
     assert [q["state"] for q in stopped["queue"]] == ["stopped", "stopped"]
     assert queued(job)["episode"] == "a"
+    assert all(j["state"] == "stopped" for j in saved.all())
     restarted = adding(files, [])
     assert sorted(restarted.not_cut()) == ["a", "b"]
 

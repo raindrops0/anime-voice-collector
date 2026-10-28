@@ -49,12 +49,12 @@ test("the views switch with the tabs and the shortcut keys", async ({ page }) =>
 
 test("Q labels the line Other, and Z undoes it", async ({ page }) => {
   await open(page);
-  const confirmed = page.getByText("Confirmed", { exact: true });
-  await expect(confirmed).toHaveCount(0);
+  const confirmed = page.getByRole("checkbox", { name: /^Confirmed \d+$/ });
+  await expect(confirmed).toHaveAccessibleName("Confirmed 0");
   await page.keyboard.press("q");
-  await expect(confirmed).toHaveCount(1);
+  await expect(confirmed).toHaveAccessibleName("Confirmed 1");
   await page.keyboard.press("z");
-  await expect(confirmed).toHaveCount(0);
+  await expect(confirmed).toHaveAccessibleName("Confirmed 0");
 });
 
 test("a new character is named in the app's own dialog, not the browser's", async ({ page }) => {
@@ -119,4 +119,43 @@ test("the language button switches the page to Chinese and back", async ({ page 
   await expect(page.getByRole("button", { name: "角色", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Switch to English" }).click();
   await expect(page.getByRole("button", { name: "Characters", exact: true })).toBeVisible();
+});
+
+test("an export keeps running and shows its result after a page refresh", async ({ page }) => {
+  await open(page);
+  const clips = await (await page.request.get("/api/clips?episode=ep01")).json();
+  const labeled = await page.request.post("/api/label", {
+    data: { clips: [clips[0].id], label: "Browser export" },
+  });
+  expect(labeled.ok()).toBe(true);
+  await page.goto("/#view=export&ep=ep01");
+  await expect(page.getByRole("heading", { name: "Export training data" })).toBeVisible();
+  let accepted: (job: { id: string }) => void = () => {};
+  const firstAccepted = new Promise<{ id: string }>((resolve) => {
+    accepted = resolve;
+  });
+  let first = true;
+  await page.route("**/api/commands", async (route) => {
+    if (!first) {
+      await route.continue();
+      return;
+    }
+    first = false;
+    const response = await route.fetch();
+    accepted(await response.json());
+    // The server accepted the command, but the page is refreshed before receiving its reply.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({ response }).catch(() => {});
+  });
+  await page.getByRole("button", { name: /^Export \d+ characters?$/ }).click();
+  const job = await firstAccepted;
+  expect(job.id).toBeTruthy();
+  await page.reload();
+  await expect(page.getByText("Exported:", { exact: true })).toBeVisible({ timeout: 20000 });
+  const result = await (await page.request.get(`/api/jobs/${job.id}`)).json();
+  expect(result.state).toBe("done");
+  expect(result.result.files).toBeGreaterThan(0);
+  const jobs = await (await page.request.get("/api/agent/jobs")).json();
+  expect(jobs.filter((j: { kind: string }) => j.kind === "export")).toHaveLength(1);
+  await page.request.post("/api/undo");
 });

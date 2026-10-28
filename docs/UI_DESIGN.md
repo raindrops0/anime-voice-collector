@@ -1,6 +1,6 @@
 # Interface design rules
 
-The rules the labeling web app keeps, so a person learns each thing once. To change how something looks or works, change the rule here first, then the code. How to use each view is in [USAGE.md](USAGE.md#the-views).
+The rules the labeling web app keeps, so a person learns each thing once. To change how something looks or works, change the rule here first, then the code. How to use each view is in [the feature pages](index.md#features).
 
 Two words used below:
 
@@ -37,7 +37,7 @@ Two words used below:
 
 ## Color
 
-The colors below are the theme's color names (set in `web/src/index.css`), not fixed colors; see [DECISIONS.md](DECISIONS.md#identity-and-interface).
+The colors below are the theme's color names, set in `web/src/index.css`. Use these names rather than fixed colors.
 
 - **A filled button in the main color** (`primary`) is the step the app suggests next: accept the machine's top guess (Enter), confirm the rest (Shift+Enter), save in a dialog, start an export. No button is filled only to stand out.
 - **The accent background with a stronger border** marks the machine's top guess among the choices (on the left), the item that is selected now, and the button that is on in a row of joined buttons.
@@ -47,7 +47,7 @@ The colors below are the theme's color names (set in `web/src/index.css`), not f
 
 - **No text box unless typing is the only way.** People pick characters by avatar, chip or key, not by typing names; there is no search box for characters.
 - A character's name is typed in only two places, both the app's own dialogs, never the browser's: "New target", where it can be left blank, and "Name" / "Rename or merge" in the Characters view, which says before saving when the name typed merges two characters.
-- **Every box for a file or folder path has a "Browse…" button right after it.** It opens the system's own file window in the nearest folder of the path already in the box that exists (so an export folder not made yet opens in the workspace), or else in the folder `avoc app` was started from. A default path is written in full, so the person sees where it goes. Pasting a path into the box still works. Files cannot be dragged in ([why](DECISIONS.md#identity-and-interface)).
+- **Every box for a file or folder path has a "Browse…" button right after it.** It opens the system's own file window in the nearest folder of the path already in the box that exists (so an export folder not made yet opens in the workspace), or else in the folder `avoc app` was started from. A default path is written in full, so the person sees where it goes. Pasting a path into the box still works. Files cannot be dragged in.
 
 ## Layout
 

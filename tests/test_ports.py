@@ -74,6 +74,17 @@ def test_a_program_that_is_not_avoc_is_not_taken_for_it(tmp_path: Path) -> None:
         server.server_close()
 
 
+def test_the_browser_waits_for_the_server(open_app: tuple[int, Path]) -> None:
+    port, _ = open_app
+    assert ports.wait_until_ready(port, timeout=1.0)
+    # A port with nothing on it yet is waited on until the time runs out.
+    server = serve({"hello": "world"})
+    port = server.server_address[1]
+    server.shutdown()
+    server.server_close()
+    assert not ports.wait_until_ready(port, timeout=0.5, every=0.1)
+
+
 def test_the_app_says_who_started_it(tmp_path: Path, monkeypatch: Any) -> None:
     # Set first, so the variable note_start writes is removed again after the test.
     monkeypatch.setenv(ports.STARTED_BY, "{}")
