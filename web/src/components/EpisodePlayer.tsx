@@ -73,6 +73,8 @@ export function EpisodePlayer({
   const [placedAt, setPlacedAt] = useState<string | null>(null);
   /* What the event handlers below read: the line now, and whether both players should start once there. */
   const now = useRef({
+    place,
+    placedAt,
     from,
     to,
     heardFrom,
@@ -96,6 +98,12 @@ export function EpisodePlayer({
   const heard = (t: number) => {
     const n = now.current;
     return !n.muteOutside || (t >= n.heardFrom - EARLY && t < n.heardTo - EARLY);
+  };
+  /* Show the picture once the frame on screen, at episode time `t`, is inside the line. The frame shown at the
+     line's start may begin up to a frame earlier. */
+  const reveal = (t: number) => {
+    const n = now.current;
+    if (n.placedAt !== n.place && t >= n.from - 2 * FRAME && t <= n.to) setPlacedAt(n.place);
   };
 
   /* Move both players to the line's start if they are not there yet, and start the sound once both can play; the
@@ -143,6 +151,8 @@ export function EpisodePlayer({
 
   useEffect(() => {
     now.current = {
+      place,
+      placedAt,
       from,
       to,
       heardFrom,
@@ -212,6 +222,8 @@ export function EpisodePlayer({
     const v = picture();
     const at = a.currentTime + n.shift;
     if (v && !v.seeking && Math.abs(v.currentTime - at) > DRIFT) v.currentTime = at;
+    /* Playing frames are drawn as they come; this also covers a jump whose frame was never reported drawn. */
+    if (v && !v.seeking && !v.paused) reveal(v.currentTime);
   };
   const checkNow = useRef(check);
   useEffect(() => {
@@ -328,9 +340,13 @@ export function EpisodePlayer({
         onClick={toggle}
         {...loading}
         onSeeked={(e) => {
-          /* A seek to the line before can end after this line was picked: only a picture inside the line counts. */
-          const t = e.currentTarget.currentTime;
-          if (t >= now.current.from - 0.5 && t <= now.current.to) setPlacedAt(place);
+          /* A seek to the line before can end after this line was picked: only a picture inside the line counts.
+             The new frame is drawn a moment after the seek ends, and until then the old one is still on screen,
+             so the picture is shown when the browser reports the frame drawn, by the time of that frame. */
+          const v = e.currentTarget;
+          if (typeof v.requestVideoFrameCallback === "function")
+            v.requestVideoFrameCallback((_, frame) => reveal(frame.mediaTime));
+          else reveal(v.currentTime);
           tryStart();
         }}
       ></video>
