@@ -15,7 +15,9 @@ RUN pip install --no-cache-dir --no-deps /wheels/*.whl \
 
 RUN useradd -m -u 1000 user
 USER user
-ENV HOME=/home/user PORT=8000
+# One math thread: the container sees every core of the host but may use a tenth of one, and
+# a thread per core made each label take seconds instead of under one.
+ENV HOME=/home/user PORT=8000 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 COPY --chown=user template/ /home/user/template/
 EXPOSE 8000
 # The port comes from PORT, which hosts such as Render set themselves.
